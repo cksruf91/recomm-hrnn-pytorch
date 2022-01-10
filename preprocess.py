@@ -8,10 +8,10 @@ import pandas as pd
 from common.utils import progressbar
 from config import CONFIG
 
+MOVIELENS = os.path.join(CONFIG.DATA, 'movielens', 'ml-10M100K')
+
 
 def loading_movielens() -> Tuple[pd.DataFrame, pd.DataFrame]:
-    MOVIELENS = os.path.join(CONFIG.DATA, 'movielens', 'ml-10M100K')
-
     ratings_header = "UserID::MovieID::Rating::Timestamp"
     tags_header = "UserID::MovieID::Tag::Timestamp"
     movies_header = "MovieID::Title::Genres"
@@ -97,12 +97,12 @@ def split_test_by_session(df):
         last_session, on=['user_id', 'session_id'], how='left', validate='m:1'
     )
     df['test'].fillna(0, inplace=True)
-    train = df[df['test'] == 0].drop('test', axis=1)
-    test = df[df['test'] == 1].drop('test', axis=1)
+    train_data = df[df['test'] == 0].drop('test', axis=1)
+    test_data = df[df['test'] == 1].drop('test', axis=1)
 
-    test = test[test["item_id"].isin(train["item_id"].unique())]
+    test_data = test_data[test_data["item_id"].isin(train["item_id"].unique())]
 
-    return train, test
+    return train_data, test_data
 
 
 def format_dataset(df: pd.DataFrame) -> Dict:
@@ -132,7 +132,7 @@ def format_dataset(df: pd.DataFrame) -> Dict:
     total_user = df.user_id.nunique()
 
     for i, (user_id, df) in enumerate(df.groupby('user_id')):
-        progressbar(total_user, i+1, prefix='parsing data ')
+        progressbar(total_user, i + 1, prefix='parsing data ')
         data[user_id] = [parsing_row(row) for index, row in df.iterrows()]
     print(' Done')
     return data
