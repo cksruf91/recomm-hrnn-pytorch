@@ -1,5 +1,4 @@
 import torch
-from torch.nn import CrossEntropyLoss
 
 
 class BPRLoss:
@@ -7,6 +6,7 @@ class BPRLoss:
         """Bayesian Personalized Ranking loss
         SESSION-BASED RECOMMENDATIONS WITH RECURRENT NEURAL NETWORKS 논문에 BPR loss pytorch 버전
         defined : https://arxiv.org/pdf/1511.06939.pdf -> 3.1.3 Ranking loss 파트 BPR 부분
+        (https://soobarkbar.tistory.com/147)
 
         example)
             output = torch.softmax(torch.rand([3, 100]), axis=1)
@@ -45,7 +45,7 @@ class TOP1Loss:
         """
         super().__init__()
 
-    def __call__(self, output, label):
+    def __call__(self, output: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
         """get TOP1 loss
 
         Args:
