@@ -43,7 +43,7 @@ class DataLoader:
     def __len__(self):
         """전체 데이터 길이
         배치 사이즈 만큼 데이터를 생성할 유저가 부족하면 iteration이 끝나기 때문에
-        실제 생성되는 데이터의 건수는 더 적을수 있음
+        실제 생성되는 데이터의 건수는 더 적을수 있음(random)
 
         Returns(int): length of total dataset
         """
@@ -105,6 +105,9 @@ class DataLoader:
         Returns : None
         """
         random.shuffle(self.user_list)
+        
+        if len(self.user_list) < self.batch_size:
+            raise ValueError(f'batch size {self.batch_size} greater then number of user : {len(self.user_list)}')
 
         self.i = 0
         self.batch_users_iter = []
