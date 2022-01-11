@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     hrnn = HRNN(128, item_size, device=device)
     loss_func = TOP1Loss()
-    optimizer = Adam(list(hrnn.parameters()), lr=0.05, eps=0.00001)
+    optimizer = Adam(list(hrnn.parameters()), lr=0.001, eps=0.00001)
     print(device)
     
     metrics = [nDCG(), RecallAtK()]

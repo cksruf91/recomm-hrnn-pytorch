@@ -14,7 +14,23 @@ def train_progressbar(total: int, i: int, bar_length: int = 50, prefix: str = ''
     dot_num = int((i + 1) / total * bar_length)
     dot = '■' * dot_num
     empty = ' ' * (bar_length - dot_num)
-    sys.stdout.write(f'\r {prefix} [{dot}{empty}] {i / total * 100:3.2f}% Done {suffix}')
+    sys.stdout.write(f'\r {prefix} [{dot}{empty}] {i / total * 100:3.2f}% {suffix}')
+
+
+def history_logging(history, metrics, output, label, mode='train'):
+    for func in metrics:
+        history[f'{mode}_{str(func)}'] = func(output, label)
+
+    metrics_name = [k for k in history.keys() if mode in k]
+    result = ""
+    for m in metrics_name:
+        if mode == 'train':
+            result += f" {m.replace('train_', '')} : {history[m]:3.3f}"
+        else:
+            result += f" {m} : {history[m]:3.3f}"
+
+    sys.stdout.write(result)
+    return history
 
 
 class TorchModelInterface(nn.Module, metaclass=ABCMeta):
@@ -85,17 +101,13 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
             history['time'] = np.round(time.time() - start_epoch_time, 2)
 
             history['train_loss'] = train_loss / total_step
-            for func in metrics:
-                history[f'train_{str(func)}'] = func(output, label)
-
-            train_result = f"loss : {history['train_loss']:3.3f} acc : {history['train_acc']:3.3f}"
-            sys.stdout.write(train_result)
+            history = history_logging(history, metrics, output, label, mode='train')
 
             epoch_val_loss, output, label = self.validation(test_dataloader, loss_func)
             history['val_loss'] = epoch_val_loss
-            for func in metrics:
-                history[f'val_{str(func)}'] = func(output, label)
-            print(f"  val_loss : {history['val_loss']:3.3f}  val_acc : {history['val_acc']:3.3f}")
+
+            history = history_logging(history, metrics, output, label, mode='val')
+            print(' Done')
 
             for func in callback:
                 func(self, history)
