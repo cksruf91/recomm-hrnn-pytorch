@@ -9,6 +9,7 @@ from common.dataloader import DataLoader
 from model.loss_functions import BPRLoss, TOP1Loss
 from config import CONFIG
 from model.hrnn4recom import HRNN
+from model.metrics import nDCG, RecallAtK
 
 
 if __name__ == '__main__':
@@ -28,7 +29,10 @@ if __name__ == '__main__':
     loss_func = TOP1Loss()
     optimizer = Adam(list(hrnn.parameters()), lr=0.05, eps=0.00001)
     print(device)
+    
+    metrics = [nDCG(), RecallAtK()]
 
     hrnn.fit(
-        10, train_dataloader, valid_dataloader, loss_func=loss_func, optimizer=optimizer
+        10, train_dataloader, valid_dataloader, loss_func=loss_func, optimizer=optimizer,
+        metrics=metrics, sample=0.1
     )

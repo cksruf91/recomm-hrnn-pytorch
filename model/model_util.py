@@ -8,23 +8,6 @@ import torch
 import torch.nn as nn
 
 
-def accuracy(output: torch.tensor, label: torch.tensor) -> float:
-    """calculate accuracy
-    Args:
-        output (torch.tensor): model prediction
-        label (torch.tensor): label
-    Returns:
-        float: accuracy
-    """
-    total = len(output)
-    label_array = np.array(label)
-    output_array = np.array(output)
-
-    assert len(label_array) == len(output_array)
-    match = np.sum(label_array == output_array)
-    return match / total
-
-
 def train_progressbar(total: int, i: int, bar_length: int = 50, prefix: str = '', suffix: str = '') -> None:
     """progressbar
     """
@@ -62,9 +45,11 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
         self.load_state_dict(torch.load(file, **kwargs))
 
     def fit(self, epoch: 10, train_dataloader, test_dataloader, loss_func=None, optimizer=None, scheduler=None,
-            callback=None, sample=1., last_epoch=0):
+            callback=None, metrics=None, sample=1., last_epoch=0):
         if callback is None:
             callback = []
+        if metrics is None:
+            metrics = []
         self.zero_grad()
         total_step = int(len(train_dataloader) * sample)
         history = {}
@@ -77,10 +62,6 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
             start_epoch_time = time.time()
             train_loss = 0
             output, label = [], []
-            # output = torch.empty([len(train_dataloader) * batch_size])
-            # label = torch.empty([len(train_dataloader) * batch_size])
-            # output[step * batch_size: (step + 1) * batch_size] = y_hat
-            # label[step * batch_size: (step + 1) * batch_size] = y
 
             for step, data in enumerate(train_dataloader):
                 # ------ step start ------
@@ -104,14 +85,16 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
             history['time'] = np.round(time.time() - start_epoch_time, 2)
 
             history['train_loss'] = train_loss / total_step
-            history['train_acc'] = accuracy(output, label)
+            for func in metrics:
+                history[f'train_{str(func)}'] = func(output, label)
 
             train_result = f"loss : {history['train_loss']:3.3f} acc : {history['train_acc']:3.3f}"
             sys.stdout.write(train_result)
 
             epoch_val_loss, output, label = self.validation(test_dataloader, loss_func)
             history['val_loss'] = epoch_val_loss
-            history['val_acc'] = accuracy(output, label)
+            for func in metrics:
+                history[f'val_{str(func)}'] = func(output, label)
             print(f"  val_loss : {history['val_loss']:3.3f}  val_acc : {history['val_acc']:3.3f}")
 
             for func in callback:
