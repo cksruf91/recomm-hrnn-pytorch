@@ -3,9 +3,10 @@ import pickle
 
 import pandas as pd
 import torch
-from torch.optim import Adam
+from torch.optim import Adam, Adagrad
 
-from common.dataloader import DataLoader
+from common.dataloader import DataLoader, NegativeSampler
+from model.callbacks import ModelCheckPoint
 from model.loss_functions import BPRLoss, TOP1Loss
 from config import CONFIG
 from model.hrnn4recom import HRNN
@@ -21,18 +22,23 @@ if __name__ == '__main__':
     item_meta = pd.read_csv(os.path.join(CONFIG.DATA, 'item_meta.csv'))
     item_size = item_meta.item_id.nunique()
 
-    train_dataloader = DataLoader(train_dataset, batch_size=64, device=device)
+    n_sampler = NegativeSampler(item_meta, sample_size=3)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=64, device=device, negative_sampler=n_sampler)
     valid_dataloader = DataLoader(valid_dataset, batch_size=64, device=device)
     total = len(train_dataloader)
 
-    hrnn = HRNN(128, item_size, device=device)
+    hrnn = HRNN(100, item_size, device=device, k=25, dropout=0.2)
     loss_func = TOP1Loss()
-    optimizer = Adam(list(hrnn.parameters()), lr=0.001, eps=0.00001)
-    print(device)
-    
+    optimizer = Adagrad(hrnn.parameters(), lr=0.1, eps=0.00001, weight_decay=0.0)
+    print(f"device : {device}")
+
     metrics = [nDCG(), RecallAtK()]
+    callbacks = [
+        ModelCheckPoint(os.path.join('.', 'result', 'hrnn_v1_e{epoch:02d}-loss{val_loss:1.4f}.zip'))
+    ]
 
     hrnn.fit(
         10, train_dataloader, valid_dataloader, loss_func=loss_func, optimizer=optimizer,
-        metrics=metrics, sample=0.1
+        metrics=metrics, callback=callbacks, sample=0.1
     )

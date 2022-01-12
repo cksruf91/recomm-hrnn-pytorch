@@ -46,6 +46,7 @@ class nDCG(Metrics):
         Returns:
             float: ndcg
         """
+        label = label[:len(output)]  # negative sampling 시 label 의 개수가 output 보다 많음
         hits = np.array(output) == np.array(label).reshape(-1, 1)
         k = np.array(output).shape[-1]
         dcg_weight = 1 / np.log2(np.arange(2, k + 2))
@@ -68,6 +69,7 @@ class RecallAtK(Metrics):
         Returns:
             float: recall@k
         """
+        label = label[:len(output)]  # negative sampling 시 label 의 개수가 output 보다 많음
         n = len(label)
         hits = np.array(output) == np.array(label).reshape(-1, 1)
         n_hits = np.sum(hits)

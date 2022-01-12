@@ -1,5 +1,6 @@
 import os
 import pickle
+from itertools import accumulate
 from typing import Dict
 from typing import Tuple
 
@@ -100,7 +101,7 @@ def split_test_by_session(df):
     train_data = df[df['test'] == 0].drop('test', axis=1)
     test_data = df[df['test'] == 1].drop('test', axis=1)
 
-    test_data = test_data[test_data["item_id"].isin(train["item_id"].unique())]
+    test_data = test_data[test_data["item_id"].isin(test_data["item_id"].unique())]
 
     return train_data, test_data
 
@@ -144,7 +145,17 @@ if __name__ == '__main__':
 
     train, test = split_test_by_session(interactions)
     train, valid = split_test_by_session(train)
+    
+    # get each item's popularity for negative sampling
+    train['item_count'] = 1
+    item_counts = train.groupby('item_id')['item_count'].sum().reset_index()
+    item_counts['cumulate_count'] = [c for c in accumulate(item_counts.item_count)]
 
+    item_meta = item_meta.merge(
+        item_counts, on='item_id', how='left', validate='1:1'
+    )
+    item_meta[['item_count', 'cumulate_count']] = item_meta[['item_count', 'cumulate_count']].fillna(0).astype(int)
+    
     train_dataset = format_dataset(train)
     valid_dataset = format_dataset(valid)
     test_dataset = format_dataset(test)
