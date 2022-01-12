@@ -57,7 +57,6 @@ class TOP1Loss:
         """
         score = output[:, label]
         batch_size = score.shape[0]
-        diff = score.diag().view(-1, 1) - score
-        loss = torch.mean(torch.sigmoid(diff) + torch.sigmoid(score ** 2), axis=1)
-        diag_l2 = torch.sigmoid(score.diag() ** 2) / batch_size
-        return torch.mean(loss - diag_l2)
+        diff = torch.mean(torch.sigmoid(score - score.diag().view(-1, 1)), axis=1)
+        l2 = torch.mean(torch.sigmoid(score ** 2), axis=1)
+        return torch.mean(diff + l2 -(torch.sigmoid(score.diag() ** 2) / batch_size)) 
