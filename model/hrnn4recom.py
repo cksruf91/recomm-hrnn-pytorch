@@ -70,12 +70,13 @@ class HRNN(TorchModelInterface):
         # {the user-level GRU takes as input the session-level representation}
         user_repr_update = self.user_gru(session_repr, user_repr)
         user_repr_update = self.user_dropout(user_repr_update)
+        # update user-representation only when session end
         user_repr = (user_repr_update * session_mask) + (user_repr * (1 - session_mask))
         user_repr = user_repr * (1 - user_mask)  # reset user_repr for new user
 
         session_repr_update = self.user_2_session(user_repr)
 
-        # update session representation only when session changed
+        # when new session start user-representation effect session init state
         session_repr = (session_repr_update * session_mask) + (session_repr * (1 - session_mask))
 
         # reset session representation for new user

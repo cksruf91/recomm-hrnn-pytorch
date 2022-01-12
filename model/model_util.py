@@ -25,9 +25,9 @@ def history_logging(history, metrics, output, label, mode='train'):
     result = ""
     for m in metrics_name:
         if mode == 'train':
-            result += f" {m.replace('train_', '')} : {history[m]:3.3f}"
+            result += f"  {m.replace('train_', '')}: {history[m]:3.3f}"
         else:
-            result += f" {m} : {history[m]:3.3f}"
+            result += f"  {m}: {history[m]:3.3f}"
 
     sys.stdout.write(result)
     return history
