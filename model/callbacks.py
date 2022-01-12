@@ -6,12 +6,11 @@ import numpy as np
 
 class ModelCheckPoint:
 
-    def __init__(self, file, mf_logger=None, save_best=True, monitor='val_loss', mode='min'):
+    def __init__(self, file, save_best=True, monitor='val_loss', mode='min'):
         self.file = file
         save_dir = os.path.dirname(self.file)
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
-        self.mf_logger = mf_logger
         self.save_best = save_best
         self.monitor = monitor
         self.mode = mode
@@ -34,9 +33,8 @@ class ModelCheckPoint:
         else:
             return val >= best
 
-    def save_model(self, model, file_name):
-        if self.mf_logger is not None:
-            self.mf_logger.log_model(model, "torch_model")
+    @staticmethod
+    def save_model(model, file_name):
         model.save(file_name)
 
 
@@ -55,15 +53,23 @@ class TrainHistory:
 
 class MlflowLogger:
 
-    def __init__(self, experiment_name: str, model_params: dict, run_name=None):
+    def __init__(self, experiment_name: str, model_params: dict, run_name=None, log_model=False,
+                 model_name='torch_model'):
         self.experiment_name = experiment_name
         self.run_name = run_name
         self.model_params = model_params
+        self.log_model = log_model
+        self.model_name = model_name
         self._set_env()
         self.run_id = self._get_run_id()
 
     def __call__(self, model, history):
         with mlflow.start_run(run_id=self.run_id):
+            if self.log_model:
+                mlflow.pytorch.log_model(
+                    pytorch_model=model,
+                    artifact_path=self.model_name
+                )
             mlflow.log_metrics(history, step=history['epoch'])
 
     def __eq__(self, other):
@@ -80,10 +86,3 @@ class MlflowLogger:
             raise ValueError("Environment variable MLFLOW_TRACKING_URI is not exist")
 
         mlflow.set_experiment(self.experiment_name)
-
-    def log_model(self, model, name):
-        with mlflow.start_run(run_id=self.run_id):
-            mlflow.pytorch.log_model(
-                pytorch_model=model,
-                artifact_path=name
-            )
