@@ -1,3 +1,4 @@
+from itertools import compress
 from typing import Tuple
 
 import torch
@@ -104,7 +105,7 @@ class HRNN(TorchModelInterface):
             y: target value dim : [batch size]
             y_hat: predict value, dim : [batch size, k]
         """
-        input_item, output_item, user_mask, session_mask = data
+        input_item, output_item, user_mask, session_mask, context = data
 
         if self.user_repr is None:
             self.user_repr = torch.zeros(input_item.shape[0], self.hidden_size, requires_grad=False,
@@ -135,5 +136,10 @@ class HRNN(TorchModelInterface):
         y_hat = indices.cpu().tolist()
         y = output_item.cpu().tolist()
         y = y[:len(y_hat)]  # drop negative sample
-
+        
+        # context session 제외
+        context = [not c for c in context]
+        y_hat = list(compress(y_hat, context))
+        y = list(compress(y, context))
+        
         return loss, y, y_hat

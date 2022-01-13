@@ -90,7 +90,7 @@ def loading_movielens() -> Tuple[pd.DataFrame, pd.DataFrame]:
     return ratings, movies
 
 
-def split_test_by_session(df):
+def split_test_by_session(df: pd.DataFrame, n_context_session: int = 3) -> Tuple[pd.DataFrame, pd.DataFrame]:
     last_session = df.groupby('user_id')['session_id'].max().reset_index()
     last_session['test'] = 1
 
@@ -102,6 +102,21 @@ def split_test_by_session(df):
     test_data = df[df['test'] == 1].drop('test', axis=1)
 
     test_data = test_data[test_data["item_id"].isin(test_data["item_id"].unique())]
+
+    # 테스트 데이터에 user representation 생성을 위한 context 데이터 추가
+    context_session = train_data[
+        train_data.groupby("user_id")["session_id"].transform('max') - n_context_session <= train_data['session_id']
+        ].copy()
+
+    train_data['context'] = False
+    test_data['context'] = False
+    context_session['context'] = True
+    test_data = pd.concat([test_data, context_session], axis=0).sort_values(['user_id', 'session_id'])
+    assert train_data['context'].sum() == 0
+
+    # 테스트데이터 각 유저 첫 라인에 user_mask = 1 처리
+    indexes = [min(group.index) for uid, group in test_data.groupby('user_id')]
+    test_data.loc[indexes, 'user_mask'] = 1
 
     return train_data, test_data
 
@@ -126,7 +141,7 @@ def format_dataset(df: pd.DataFrame) -> Dict:
     def parsing_row(row):
         return {
             'inputItem': row['item_id'], 'outputItem': row['target_id'], 'userMask': row['user_mask'],
-            'sessionMask': row['session_mask']
+            'sessionMask': row['session_mask'], 'conText': row['context']
         }
 
     data = {}
@@ -143,9 +158,9 @@ if __name__ == '__main__':
     interactions, item_meta = loading_movielens()
     print(interactions.head())
 
-    train, test = split_test_by_session(interactions)
-    train, valid = split_test_by_session(train)
-    
+    train, test = split_test_by_session(interactions, n_context_session=3)
+    train, valid = split_test_by_session(train, n_context_session=3)
+
     # get each item's popularity for negative sampling
     train['item_count'] = 1
     item_counts = train.groupby('item_id')['item_count'].sum().reset_index()
@@ -155,7 +170,7 @@ if __name__ == '__main__':
         item_counts, on='item_id', how='left', validate='1:1'
     )
     item_meta[['item_count', 'cumulate_count']] = item_meta[['item_count', 'cumulate_count']].fillna(0).astype(int)
-    
+
     train_dataset = format_dataset(train)
     valid_dataset = format_dataset(valid)
     test_dataset = format_dataset(test)

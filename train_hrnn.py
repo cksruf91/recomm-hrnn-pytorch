@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 from torch.optim import Adagrad
 
-from common.dataloader import DataLoader
+from common.dataloader import DataLoader, NegativeSampler
 from config import CONFIG
 from model.callbacks import ModelCheckPoint
 from model.hrnn4recom import HRNN
@@ -21,7 +21,9 @@ if __name__ == '__main__':
     item_meta = pd.read_csv(os.path.join(CONFIG.DATA, 'item_meta.csv'))
     item_size = item_meta.item_id.nunique()
 
-    train_dataloader = DataLoader(train_dataset, batch_size=64, device=device)
+    n_sampler = NegativeSampler(item_meta, sample_size=30)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=64, device=device, negative_sampler=None)
     valid_dataloader = DataLoader(valid_dataset, batch_size=64, device=device)
     total = len(train_dataloader)
 

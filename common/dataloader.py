@@ -91,22 +91,22 @@ class DataLoader:
         return int(length / self.batch_size)
 
     def __iter__(self):
-        """ inter(self) """
+        """ iter(self) """
         return self  # 현재 인스턴스를 반환
 
     def __next__(self) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
         """
-
         Returns(torch.tensor):
-            input 아이템, output 아이템,
+            input 아이템 index, output 아이템 index,
             user_mask(유저가 변경될 경우 1 아님 0),
             session_mask(세션이 변경될 경우 1 아님 0)
-
+            context(테스트를 위한 context 세션일 경우 True 아님 False)
         """
         input_item = torch.zeros(self.batch_size, dtype=torch.int64, device=self.device)
         output_item = torch.zeros(self.batch_size + self.n_sample_size, dtype=torch.int64, device=self.device)
         user_mask = torch.zeros([self.batch_size, 1], dtype=torch.int64, device=self.device)
         session_mask = torch.zeros([self.batch_size, 1], dtype=torch.int64, device=self.device)
+        context = torch.zeros(self.batch_size, dtype=torch.bool, device=self.device)
 
         for j in range(self.batch_size):
             try:
@@ -119,12 +119,13 @@ class DataLoader:
             output_item[j] = batch_data['outputItem']
             user_mask[j] = batch_data['userMask']
             session_mask[j] = batch_data['sessionMask']
+            context[j] =  batch_data['conText']
 
         n_samples = self.negative_sampler(output_item.cpu().tolist()) \
             if self.negative_sampler is not None else torch.tensor([], dtype=torch.int64)
-        output_item[j+1:] = n_samples
+        output_item[j + 1:] = n_samples
 
-        return input_item, output_item, user_mask, session_mask
+        return input_item, output_item, user_mask, session_mask, context
 
     def assign_iterator(self) -> Iterator:
         """ 유저 데이터를 순서대로 다 사용했을 경우 새로운 유저의 데이터 제너레이터를 생성
