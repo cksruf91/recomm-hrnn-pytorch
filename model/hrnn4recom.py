@@ -130,8 +130,10 @@ class HRNN(TorchModelInterface):
             if scheduler is not None:
                 scheduler.step()  # Update learning rate schedule
             self.zero_grad()
+
         _, indices = torch.topk(output, self.k, dim=-1)
         y_hat = indices.cpu().tolist()
         y = output_item.cpu().tolist()
+        y = y[:len(y_hat)]  # drop negative sample
 
         return loss, y, y_hat

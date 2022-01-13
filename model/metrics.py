@@ -18,8 +18,8 @@ class Accuracy(Metrics):
     def __call__(self, output: list, label: list) -> float:
         """get accuracy
         Args:
-            output : model prediction
-            label : label
+            output : model prediction, dim: [total data size, top k]
+            label : label, dim: [total data size]
         Returns:
             float: accuracy
         """
@@ -41,12 +41,11 @@ class nDCG(Metrics):
         """get normalized Discounted Cumulative Gain
 
         Args:
-            output : model prediction
-            label : label
+            output : model prediction, dim: [total data size, top k]
+            label : label, dim: [total data size]
         Returns:
             float: ndcg
         """
-        label = label[:len(output)]  # negative sampling 시 label 의 개수가 output 보다 많음
         hits = np.array(output) == np.array(label).reshape(-1, 1)
         k = np.array(output).shape[-1]
         dcg_weight = 1 / np.log2(np.arange(2, k + 2))
@@ -64,12 +63,11 @@ class RecallAtK(Metrics):
     def __call__(self, output: list, label: list) -> float:
         """get recall at k
         Args:
-            output : model prediction
-            label : label
+            output : model prediction, dim: [total data size, top k]
+            label : label, dim: [total data size]
         Returns:
             float: recall@k
         """
-        label = label[:len(output)]  # negative sampling 시 label 의 개수가 output 보다 많음
         n = len(label)
         hits = np.array(output) == np.array(label).reshape(-1, 1)
         n_hits = np.sum(hits)
@@ -84,8 +82,8 @@ class PrecisionAtK(Metrics):
     def __call__(self, output: list, label: list) -> float:
         """get precision at k
         Args:
-            output : model prediction
-            label : label
+            output : model prediction, dim: [total data size, top k]
+            label : label, dim: [total data size]
         Returns:
             float: precision@k
         """

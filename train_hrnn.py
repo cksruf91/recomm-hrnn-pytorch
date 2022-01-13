@@ -3,15 +3,14 @@ import pickle
 
 import pandas as pd
 import torch
-from torch.optim import Adam, Adagrad
+from torch.optim import Adagrad
 
-from common.dataloader import DataLoader, NegativeSampler
-from model.callbacks import ModelCheckPoint
-from model.loss_functions import BPRLoss, TOP1Loss
+from common.dataloader import DataLoader
 from config import CONFIG
+from model.callbacks import ModelCheckPoint
 from model.hrnn4recom import HRNN
+from model.loss_functions import TOP1Loss
 from model.metrics import nDCG, RecallAtK
-
 
 if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -22,9 +21,7 @@ if __name__ == '__main__':
     item_meta = pd.read_csv(os.path.join(CONFIG.DATA, 'item_meta.csv'))
     item_size = item_meta.item_id.nunique()
 
-    n_sampler = NegativeSampler(item_meta, sample_size=3)
-
-    train_dataloader = DataLoader(train_dataset, batch_size=64, device=device, negative_sampler=n_sampler)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, device=device)
     valid_dataloader = DataLoader(valid_dataset, batch_size=64, device=device)
     total = len(train_dataloader)
 
