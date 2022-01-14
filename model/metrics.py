@@ -7,6 +7,7 @@ class Metrics(metaclass=ABCMeta):
 
     @abstractmethod
     def __str__(self):
+        """ return display name """
         pass
 
 
@@ -35,7 +36,7 @@ class Accuracy(Metrics):
 class nDCG(Metrics):
 
     def __str__(self):
-        return "ndcg"
+        return "nDCG"
 
     def __call__(self, output: list, label: list) -> float:
         """get normalized Discounted Cumulative Gain
@@ -58,7 +59,7 @@ class nDCG(Metrics):
 class RecallAtK(Metrics):
 
     def __str__(self):
-        return "recall@k"
+        return "recallAtK"
 
     def __call__(self, output: list, label: list) -> float:
         """get recall at k
@@ -77,7 +78,7 @@ class RecallAtK(Metrics):
 class PrecisionAtK(Metrics):
 
     def __str__(self):
-        return "precision@k"
+        return "precisionAtK"
 
     def __call__(self, output: list, label: list) -> float:
         """get precision at k
