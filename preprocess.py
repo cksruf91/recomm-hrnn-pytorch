@@ -132,7 +132,7 @@ def format_dataset(df: pd.DataFrame) -> Dict:
 
     Returns(dict): dictionary format data
         예시) {user_id1 : [row data, row data ....], user_id2 : [row data, row data ....], .... },
-            row data = {'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0}
+            row data = {'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0, 'conText': True}
 
     """
 

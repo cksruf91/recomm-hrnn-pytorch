@@ -51,7 +51,7 @@ class TOP1Loss:
         Args:
             output: tensor of output score, dim: [batch size, item size]
             label: index of item, dim: [batch size + alpha]
-                alpha = extra (negative) sample item
+                alpha = extra(negative sample) item
 
         Returns: top1 loss
         """

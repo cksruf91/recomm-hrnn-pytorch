@@ -4,6 +4,7 @@ from typing import Iterator, List, Tuple, Dict
 import numpy as np
 import torch
 from pandas import DataFrame
+from torch import Tensor
 
 
 class NegativeSampler:
@@ -44,7 +45,7 @@ def data_iterator(user_data: List[Dict]) -> Iterator:
     Args:
         user_data: 학습데이터
             예시) [row data, row data ....],
-                - row data = row data = {'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0}
+                - row data = {'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0, 'conText': True}
 
     Returns: Iterator
     """
@@ -62,7 +63,9 @@ class DataLoader:
         Args:
             data(dict): 학습데이터
                 예시) {user_id1 : [row data, row data ....], user_id2 : [row data, row data ....], .... },
-                    row data = namedtuple('Interactions', ['inputItem', 'outputItem', 'userMask', 'sessionMask'])
+                    row data = {
+                        'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0, 'conText': True
+                    }
             batch_size(int): 배치 사이즈, 1 이상 전체 유저수 이하
             device: 모델 학습 device, torch.device('cpu') or torch.device('cuda')
             negative_sampler: 아이템의 인기도를 가중치로 아이템 아이디를 list로 반환하는 샘플러
@@ -78,7 +81,7 @@ class DataLoader:
         self.batch_users_iter = []  # list fo Iterator (data_iterator)
         self.shuffle_user()
 
-    def __len__(self):
+    def __len__(self) -> int:
         """전체 데이터 길이
         배치 사이즈 만큼 데이터를 생성할 유저가 부족하면 iteration이 끝나기 때문에
         실제 생성되는 데이터의 건수는 더 적을수 있음(random)
@@ -94,7 +97,7 @@ class DataLoader:
         """ iter(self) """
         return self  # 현재 인스턴스를 반환
 
-    def __next__(self) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
+    def __next__(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """
         Returns(torch.tensor):
             input 아이템 index, output 아이템 index,
@@ -119,7 +122,7 @@ class DataLoader:
             output_item[j] = batch_data['outputItem']
             user_mask[j] = batch_data['userMask']
             session_mask[j] = batch_data['sessionMask']
-            context[j] =  batch_data['conText']
+            context[j] = batch_data['conText']
 
         n_samples = self.negative_sampler(output_item.cpu().tolist()) \
             if self.negative_sampler is not None else torch.tensor([], dtype=torch.int64)
