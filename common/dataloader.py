@@ -74,7 +74,7 @@ class DataLoader:
         self.batch_size = batch_size
         self.device = device
         self.negative_sampler = negative_sampler
-        self.n_sample_size = self.negative_sampler.sample_size if negative_sampler is not None else 0
+        self.n_sample_size = self.negative_sampler.sample_size if self.negative_sampler is not None else 0
 
         self.user_list = list(self.data.keys())
         self.i = 0
