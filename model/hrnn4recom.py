@@ -143,3 +143,15 @@ class HRNN(TorchModelInterface):
         y = list(compress(y, context))
         
         return loss, y, y_hat
+
+    def get_recommendation(self, dataloader, k):
+
+        self.k = k
+        # initialize representation
+        self.user_repr = None
+        self.session_repr = None
+
+        for step, data in enumerate(dataloader):
+            _, _, recommend_items = self._compute_loss(data, loss_func=lambda a, b: torch.tensor([0.0]), train=False)
+
+        return recommend_items

@@ -8,6 +8,20 @@ class DotDict(dict):
     __delattr__ = dict.__delitem__
 
 
+class DefaultDict(dict):
+    """KeyError -> return default value"""
+
+    def __init__(self, default, *arg):
+        super().__init__(*arg)
+        self.default = default
+
+    def __getitem__(self, item):
+        try:
+            return dict.__getitem__(self, item)
+        except KeyError:
+            return self.default
+
+
 def progressbar(total, i, bar_length=50, prefix='', suffix=''):
     """progressbar
     """

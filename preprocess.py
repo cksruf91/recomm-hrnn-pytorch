@@ -6,7 +6,7 @@ from typing import Tuple
 
 import pandas as pd
 
-from common.utils import progressbar
+from common.utils import progressbar, DefaultDict
 from config import CONFIG
 
 MOVIELENS = os.path.join(CONFIG.DATA, 'movielens', 'ml-10M100K')
@@ -59,12 +59,15 @@ def loading_movielens() -> Tuple[pd.DataFrame, pd.DataFrame]:
     ratings = drop_sparse_user(ratings, 5, 99)
     print(f"drop sparse user : {len(ratings)}")
 
-    item_id_mapper = {
-        movie_id: item_id for item_id, movie_id in enumerate(movies['MovieID'])
-    }
+    item_id_mapper = DefaultDict(None, {
+        movie_id: item_id for item_id, movie_id in enumerate(ratings['MovieID'].unique())
+    })
     print(f"unique item count : {len(item_id_mapper)}")
 
     movies['item_id'] = movies['MovieID'].map(lambda x: item_id_mapper[x])
+    movies = movies[movies.item_id.notnull()]
+    movies.item_id = movies.item_id.astype(int)
+    
     ratings['item_id'] = ratings['MovieID'].map(lambda x: item_id_mapper[x])
     ratings.rename(columns={'UserID': 'user_id'}, inplace=True)
 
@@ -86,7 +89,7 @@ def loading_movielens() -> Tuple[pd.DataFrame, pd.DataFrame]:
     ratings = ratings[
         ['user_id', 'item_id', 'target_id', 'session_id', 'Timestamp', 'MovieID', 'user_mask', 'session_mask']
     ]
-    movies = movies[['item_id', 'MovieID', 'Title']]
+    movies = movies[['item_id', 'MovieID', 'Title', 'Genres']]
     return ratings, movies
 
 

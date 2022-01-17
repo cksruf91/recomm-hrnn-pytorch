@@ -25,13 +25,14 @@ if __name__ == '__main__':
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     model_params = {
+        'hiddenUnits': 100,  # 500
         'negativeSampleSize': 0,
-        'learningRate': 1.,
+        'learningRate': 0.1,
         'loss': 'TOP1Loss',
-        'optimizer': 'Adadelta',
+        'optimizer': 'Adagrad',
         'hiddenSize': 100,
         'k': 10, 'dropout': 0.2,
-        'batchSize': 32
+        'batchSize': 50
     }
 
     print('loading data...')
@@ -51,10 +52,13 @@ if __name__ == '__main__':
     )
     total = len(train_dataloader)
 
-    hrnn = HRNN(100, item_size, device=device, k=model_params['k'], dropout=model_params['dropout'])
+    hrnn = HRNN(
+        model_params['hiddenUnits'], item_size, device=device, k=model_params['k'], 
+        dropout=model_params['dropout']
+    )
     loss_func = TOP1Loss()
-    # optimizer = Adagrad(hrnn.parameters(), lr=model_params['learningRate'], eps=0.00001, weight_decay=0.0)
-    optimizer = Adadelta(hrnn.parameters(), lr=model_params['learningRate'], eps=1e-06, weight_decay=0.0)
+    optimizer = Adagrad(hrnn.parameters(), lr=model_params['learningRate'], eps=0.00001, weight_decay=0.0)
+    # optimizer = Adadelta(hrnn.parameters(), lr=model_params['learningRate'], eps=1e-06, weight_decay=0.0)
     
     print(f"device : {device}")
 
