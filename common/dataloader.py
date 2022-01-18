@@ -16,6 +16,8 @@ class NegativeSampler:
             item_meta: item_id와 cumulate_count(아이템의 출현횟수 누적합) 컬럼을 가지고 있는 데이터 프레임
             sample_size: 네거티브 샘플링할 샘플의 개수
         """
+        item_meta = item_meta.sort_values('cumulate_count', ascending=True, inplace=False)
+        
         self.item_meta = item_meta[item_meta['cumulate_count'] != 0]
         self.item_list = self.item_meta.item_id.tolist()
         self.item_cumulate_count = self.item_meta.cumulate_count.tolist()
@@ -30,12 +32,14 @@ class NegativeSampler:
         Returns: 샘플링된 아이템에서 positive_items 는 제외한 후 반환
 
         """
+
         n_sample = len(positive_items) + self.sample_size
         samples = random.choices(
             self.item_list, cum_weights=self.item_cumulate_count, k=n_sample
         )
 
         sample = list(set(samples) - set(positive_items))[:self.sample_size]  # 네거티브 샘플에서 정상적인 아이템은 제거
+
         return torch.tensor(sample, dtype=torch.int64)
 
 
@@ -126,6 +130,7 @@ class DataLoader:
 
         n_samples = self.negative_sampler(output_item.cpu().tolist()) \
             if self.negative_sampler is not None else torch.tensor([], dtype=torch.int64)
+
         output_item[j + 1:] = n_samples
 
         return input_item, output_item, user_mask, session_mask, context

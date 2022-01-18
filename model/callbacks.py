@@ -53,7 +53,7 @@ class TrainHistory:
 
 class MlflowLogger:
 
-    def __init__(self, experiment_name: str, model_params: dict, run_name=None, log_model=False,
+    def __init__(self, experiment_name: str, model_params: dict, run_name=None, run_id=None, log_model=False,
                  model_name='torch_model'):
         self.experiment_name = experiment_name
         self.run_name = run_name
@@ -61,7 +61,7 @@ class MlflowLogger:
         self.log_model = log_model
         self.model_name = model_name
         self._set_env()
-        self.run_id = self._get_run_id()
+        self.run_id = self._get_run_id() if run_id is None else run_id
 
     def __call__(self, model, history):
         with mlflow.start_run(run_id=self.run_id):

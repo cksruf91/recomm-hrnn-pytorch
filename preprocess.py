@@ -1,18 +1,30 @@
+import argparse
 import os
 import pickle
 from itertools import accumulate
-from typing import Dict
-from typing import Tuple
+from typing import Dict, Tuple
 
 import pandas as pd
 
 from common.utils import progressbar, DefaultDict
 from config import CONFIG
 
-MOVIELENS = os.path.join(CONFIG.DATA, 'movielens', 'ml-10M100K')
+
+def args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--dataset', default='10M', choices=['10M', '1M'], help='데이터셋', type=str)
+    return parser.parse_args()
 
 
-def loading_movielens() -> Tuple[pd.DataFrame, pd.DataFrame]:
+def loading_movielens(data_type: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    
+    if data_type == '10M':
+        MOVIELENS = os.path.join(CONFIG.DATA, 'movielens', 'ml-10M100K')
+    elif data_type == '1M':
+        MOVIELENS = os.path.join(CONFIG.DATA, 'movielens', 'ml-1m')
+    else:
+        raise ValueError(f"unknown data type {datatype}")
+    
     ratings_header = "UserID::MovieID::Rating::Timestamp"
     tags_header = "UserID::MovieID::Tag::Timestamp"
     movies_header = "MovieID::Title::Genres"
@@ -47,7 +59,7 @@ def loading_movielens() -> Tuple[pd.DataFrame, pd.DataFrame]:
     movies = pd.read_csv(
         os.path.join(MOVIELENS, 'movies.dat'),
         sep='::', header=None, names=movies_header.split('::'),
-        engine='python'
+        engine='python', encoding='iso-8859-1'
     )
 
     print(f"ratings dataset : {len(ratings)}")
@@ -153,12 +165,15 @@ def format_dataset(df: pd.DataFrame) -> Dict:
     for i, (user_id, df) in enumerate(df.groupby('user_id')):
         progressbar(total_user, i + 1, prefix='parsing data ')
         data[user_id] = [parsing_row(row) for index, row in df.iterrows()]
+    
     print(' Done')
     return data
 
 
 if __name__ == '__main__':
-    interactions, item_meta = loading_movielens()
+    argument = args()
+    
+    interactions, item_meta = loading_movielens(argument.dataset)
     print(interactions.head())
 
     train, test = split_test_by_session(interactions, n_context_session=3)
@@ -178,8 +193,8 @@ if __name__ == '__main__':
     valid_dataset = format_dataset(valid)
     test_dataset = format_dataset(test)
 
-    pickle.dump(train_dataset, open(os.path.join(CONFIG.DATA, 'train.pkl'), 'wb'))
-    pickle.dump(valid_dataset, open(os.path.join(CONFIG.DATA, 'valid.pkl'), 'wb'))
-    pickle.dump(test_dataset, open(os.path.join(CONFIG.DATA, 'test.pkl'), 'wb'))
+    pickle.dump(train_dataset, open(os.path.join(CONFIG.DATA, f'train_{argument.dataset}.pkl'), 'wb'))
+    pickle.dump(valid_dataset, open(os.path.join(CONFIG.DATA, f'valid_{argument.dataset}.pkl'), 'wb'))
+    pickle.dump(test_dataset, open(os.path.join(CONFIG.DATA, f'test_{argument.dataset}.pkl'), 'wb'))
 
-    item_meta.to_csv(os.path.join(CONFIG.DATA, 'item_meta.csv'), index=False)
+    item_meta.to_csv(os.path.join(CONFIG.DATA, f'item_meta_{argument.dataset}.csv'), index=False)
