@@ -7,13 +7,13 @@ from typing import Dict, Tuple
 import pandas as pd
 
 from common.utils import progressbar, DefaultDict
-from common.data_preprocess import loading_movielens
+from common.data_preprocess import loading_data
 from config import CONFIG
 
 
 def args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--dataset', default='10M', choices=['10M', '1M'], help='데이터셋', type=str)
+    parser.add_argument('-d', '--dataset', default='10M', choices=['10M', '1M', 'BRUNCH'], help='데이터셋', type=str)
     return parser.parse_args()
 
 
@@ -85,7 +85,7 @@ def format_dataset(df: pd.DataFrame) -> Dict:
 if __name__ == '__main__':
     argument = args()
     
-    interactions, item_meta = loading_movielens(argument.dataset)
+    interactions, item_meta = loading_data(argument.dataset)
     print(interactions.head())
 
     train, test = split_test_by_session(interactions, n_context_session=3)
@@ -105,8 +105,13 @@ if __name__ == '__main__':
     valid_dataset = format_dataset(valid)
     test_dataset = format_dataset(test)
 
-    pickle.dump(train_dataset, open(os.path.join(CONFIG.DATA, f'train_{argument.dataset}.pkl'), 'wb'))
-    pickle.dump(valid_dataset, open(os.path.join(CONFIG.DATA, f'valid_{argument.dataset}.pkl'), 'wb'))
-    pickle.dump(test_dataset, open(os.path.join(CONFIG.DATA, f'test_{argument.dataset}.pkl'), 'wb'))
+    save_dir = os.path.join(CONFIG.DATA, argument.dataset)
 
-    item_meta.to_csv(os.path.join(CONFIG.DATA, f'item_meta_{argument.dataset}.csv'), index=False)
+    if not os.path.isdir(save_dir):
+        os.makedirs(save_dir)
+
+    pickle.dump(train_dataset, open(os.path.join(save_dir, f'train.pkl'), 'wb'))
+    pickle.dump(valid_dataset, open(os.path.join(save_dir, f'valid.pkl'), 'wb'))
+    pickle.dump(test_dataset, open(os.path.join(save_dir, f'test.pkl'), 'wb'))
+
+    item_meta.to_csv(os.path.join(save_dir, f'item_meta.csv'), index=False)

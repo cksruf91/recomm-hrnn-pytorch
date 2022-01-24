@@ -17,7 +17,7 @@ from model.metrics import nDCG, RecallAtK
 def args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--model_version', required=True, help='모델 버전', type=str)
-    parser.add_argument('-d', '--dataset', default='10M', choices=['10M', '1M'], help='데이터셋', type=str)
+    parser.add_argument('-d', '--dataset', default='10M', choices=['10M', '1M', 'BRUNCH'], help='데이터셋', type=str)
     parser.add_argument('-k', '--eval_k', default=25, help='', type=int)
     parser.add_argument('-lr', '--learning_rate', default=0.1, help='learning rate', type=float)
     parser.add_argument('-bs', '--batch_size', default=50, help='batch size', type=int)
@@ -41,9 +41,10 @@ if __name__ == '__main__':
     }
 
     print('loading data...')
-    train_dataset = pickle.load(open(os.path.join(CONFIG.DATA, f'train_{argument.dataset}.pkl'), 'rb'))
-    valid_dataset = pickle.load(open(os.path.join(CONFIG.DATA, f'valid_{argument.dataset}.pkl'), 'rb'))
-    item_meta = pd.read_csv(os.path.join(CONFIG.DATA, f'item_meta_{argument.dataset}.csv'))
+    data_dir = os.path.join(CONFIG.DATA, argument.dataset)
+    train_dataset = pickle.load(open(os.path.join(data_dir, f'train.pkl'), 'rb'))
+    valid_dataset = pickle.load(open(os.path.join(data_dir, f'valid.pkl'), 'rb'))
+    item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.csv'))
     item_size = item_meta.item_id.nunique()
     model_params['itemSize'] = item_size
 
@@ -73,7 +74,7 @@ if __name__ == '__main__':
         ModelCheckPoint(
             os.path.join('.', 'result', argument.dataset, 
                 f'hrnn_v{argument.model_version}' + '_e{epoch:02d}-loss{val_loss:1.4f}.zip')),
-        MlflowLogger(f'Movielens{argument.dataset}', model_params, run_name=f'hrnn-v{argument.model_version}')
+        MlflowLogger(f'{argument.dataset}', model_params, run_name=f'hrnn-v{argument.model_version}')
     ]
 
     hrnn.fit(
