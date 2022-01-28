@@ -101,17 +101,19 @@ if __name__ == '__main__':
     )
     item_meta[['item_count', 'cumulate_count']] = item_meta[['item_count', 'cumulate_count']].fillna(0).astype(int)
 
-    train_dataset = format_dataset(train)
-    valid_dataset = format_dataset(valid)
-    test_dataset = format_dataset(test)
 
     save_dir = os.path.join(CONFIG.DATA, argument.dataset)
 
     if not os.path.isdir(save_dir):
         os.makedirs(save_dir)
-
+    
+    train_dataset = format_dataset(train)
     pickle.dump(train_dataset, open(os.path.join(save_dir, f'train.pkl'), 'wb'))
+    
+    valid_dataset = format_dataset(valid)    
     pickle.dump(valid_dataset, open(os.path.join(save_dir, f'valid.pkl'), 'wb'))
+    
+    test_dataset = format_dataset(test)
     pickle.dump(test_dataset, open(os.path.join(save_dir, f'test.pkl'), 'wb'))
 
     item_meta.to_csv(os.path.join(save_dir, f'item_meta.csv'), index=False)

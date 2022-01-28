@@ -28,7 +28,9 @@ class HRNN(TorchModelInterface):
         self.item_size = item_size
         self.dropout_rate = dropout
         self.device = device
-
+        
+        # self.item_embedding = nn.Embedding(self.item_size, self.hidden_size)
+        
         self.user_gru = nn.GRUCell(self.hidden_size, self.hidden_size)
         self.user_dropout = nn.Dropout(self.dropout_rate)
 
@@ -67,6 +69,7 @@ class HRNN(TorchModelInterface):
 
         """
         item_vec = one_hot(input_item, self.item_size).float()
+        # item_vec = self.item_embedding(input_item)
 
         # {the user-level GRU takes as input the session-level representation}
         user_repr_update = self.user_gru(session_repr, user_repr)

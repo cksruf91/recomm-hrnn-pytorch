@@ -26,6 +26,8 @@ def args():
 
 
 if __name__ == '__main__':
+    os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+    
     argument = args()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -35,7 +37,6 @@ if __name__ == '__main__':
         'learningRate': argument.learning_rate,
         'loss': 'TOP1Loss',
         'optimizer': 'Adagrad',
-        'hiddenSize': 100,
         'k': argument.eval_k, 'dropout': 0.2,
         'batchSize': argument.batch_size
     }
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     train_dataset = pickle.load(open(os.path.join(data_dir, f'train.pkl'), 'rb'))
     valid_dataset = pickle.load(open(os.path.join(data_dir, f'valid.pkl'), 'rb'))
     item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.csv'))
-    item_size = item_meta.item_id.nunique()
+    item_size = int(item_meta.item_id.max()) + 1
     model_params['itemSize'] = item_size
 
     n_sampler = NegativeSampler(item_meta, sample_size=model_params['negativeSampleSize'])
@@ -78,6 +79,6 @@ if __name__ == '__main__':
     ]
 
     hrnn.fit(
-        10, train_dataloader, valid_dataloader, loss_func=loss_func, optimizer=optimizer,
-        metrics=metrics, callback=callbacks, sample=1.
+        30, train_dataloader, valid_dataloader, loss_func=loss_func, optimizer=optimizer,
+        metrics=metrics, callback=callbacks, sample=0.3
     )

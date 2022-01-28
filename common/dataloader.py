@@ -114,20 +114,22 @@ class DataLoader:
         user_mask = torch.zeros([self.batch_size, 1], dtype=torch.int64, device=self.device)
         session_mask = torch.zeros([self.batch_size, 1], dtype=torch.int64, device=self.device)
         context = torch.zeros(self.batch_size, dtype=torch.bool, device=self.device)
-
+        
         for j in range(self.batch_size):
             try:
+                
                 batch_data = next(self.batch_users_iter[j])
+                
             except StopIteration as e:  # iteration 이 끝난경우
                 self.batch_users_iter[j] = self.assign_iterator()  # 다른유저로 새 Iterator 생성
                 batch_data = next(self.batch_users_iter[j])
-
+            
             input_item[j] = batch_data['inputItem']
             output_item[j] = batch_data['outputItem']
             user_mask[j] = batch_data['userMask']
             session_mask[j] = batch_data['sessionMask']
             context[j] = batch_data['conText']
-
+        
         n_samples = self.negative_sampler(output_item.cpu().tolist()) \
             if self.negative_sampler is not None else torch.tensor([], dtype=torch.int64)
 
