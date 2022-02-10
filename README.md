@@ -14,12 +14,13 @@ unzip ml-10m.zip
 
 ## Preprocess data
 ```bash
-python preprocess.py
+python preprocess.py -d 1M
 ```
 
 ## Train model
+example
 ```bash
-python train_hrnn.py
+python train_hrnn.py -d 1M -k 10 -lr 0.1 -v 0.0.0
 ```
 
 ## Inference model

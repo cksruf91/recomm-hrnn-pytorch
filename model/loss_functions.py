@@ -26,7 +26,7 @@ class BPRLoss:
         Returns: BPR loss
         """
         score = output[:, label]
-        diff = score - score.diag().view(-1, 1)
+        diff = output - score.diag().view(-1, 1)
         return -torch.mean(torch.log(torch.sigmoid(diff)))
 
 
@@ -57,6 +57,6 @@ class TOP1Loss:
         """
         score = output[:, label]
         batch_size = score.shape[0]
-        diff = torch.mean(torch.sigmoid(score - score.diag().view(-1, 1)), dim=1)
+        diff = torch.mean(torch.sigmoid(output - score.diag().view(-1, 1)), dim=1)
         l2 = torch.mean(torch.sigmoid(score ** 2), dim=1)
         return torch.mean(diff + l2 - (torch.sigmoid(score.diag() ** 2) / batch_size))

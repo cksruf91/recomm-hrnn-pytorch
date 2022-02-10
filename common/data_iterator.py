@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from pandas import DataFrame
 from torch import Tensor
+from torch.utils.data import Dataset
 
 
 class NegativeSampler:
@@ -107,13 +108,13 @@ class DataLoader:
             input 아이템 index, output 아이템 index,
             user_mask(유저가 변경될 경우 1 아님 0),
             session_mask(세션이 변경될 경우 1 아님 0)
-            context(테스트를 위한 context 세션일 경우 True 아님 False)
+            
         """
         input_item = torch.zeros(self.batch_size, dtype=torch.int64, device=self.device)
         output_item = torch.zeros(self.batch_size + self.n_sample_size, dtype=torch.int64, device=self.device)
         user_mask = torch.zeros([self.batch_size, 1], dtype=torch.int64, device=self.device)
         session_mask = torch.zeros([self.batch_size, 1], dtype=torch.int64, device=self.device)
-        context = torch.zeros(self.batch_size, dtype=torch.bool, device=self.device)
+        # context = torch.zeros(self.batch_size, dtype=torch.bool, device=self.device)
 
         for j in range(self.batch_size):
             try:
@@ -126,14 +127,12 @@ class DataLoader:
             output_item[j] = batch_data['outputItem']
             user_mask[j] = batch_data['userMask']
             session_mask[j] = batch_data['sessionMask']
-            context[j] = batch_data['conText']
+            # context[j] = batch_data['conText']
 
-        n_samples = self.negative_sampler(output_item.cpu().tolist()) \
-            if self.negative_sampler is not None else torch.tensor([], dtype=torch.int64)
+        if self.negative_sampler is not None :
+            output_item[j + 1:] = self.negative_sampler(output_item.cpu().tolist())
 
-        output_item[j + 1:] = n_samples
-
-        return input_item, output_item, user_mask, session_mask, context
+        return input_item, output_item, user_mask, session_mask
 
     def assign_iterator(self) -> Iterator:
         """ 유저 데이터를 순서대로 다 사용했을 경우 새로운 유저의 데이터 제너레이터를 생성
@@ -164,3 +163,65 @@ class DataLoader:
         self.batch_users_iter = []
         for _ in range(self.batch_size):
             self.batch_users_iter.append(self.assign_iterator())
+
+
+class TestIterator:
+
+    def __init__(self, test_file, context_dataset, device=None):
+        self.data = []
+        if device is None:
+            device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        self.device = device
+        self.context_dataset = context_dataset
+        self.read_file(test_file)
+        self.n_item = len(self.data[0][1:])
+        self.i = -1 
+        
+
+    def read_file(self, test_file):
+        with open(test_file, 'r') as f:
+            for row in f:
+                row = [int(r) for r in row.split('\t')]
+                last_item = self.context_dataset[row[0]][-1]['outputItem']
+                row.append(last_item)
+                self.data.append(row)
+
+    def _to_tensor(self, value, dtype=torch.int64):
+        return torch.tensor(value, device=self.device, dtype=dtype)
+
+    def __getitem__(self, index):
+        user = self.data[index][0]
+        iterator = self.data_iterator(self.context_dataset[user])
+        
+        # label = [1] + [0] * (self.n_item-1)
+        # label = self._to_tensor(label, dtype=torch.float32)
+        # user = self._to_tensor(user)
+        
+        samples = self._to_tensor(self.data[index][1:-1])
+        item = self._to_tensor(self.data[index][1])
+        last_item = self._to_tensor([self.data[index][-1]])
+        return item, samples, last_item, iterator
+
+    def __iter__(self):
+        """ iter(self) """
+        return self  # 현재 인스턴스를 반환
+    
+    def __next__(self):
+        self.i += 1
+        try:
+            return self[self.i]
+        except IndexError:
+            self.i = -1
+            raise StopIteration
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def data_iterator(self, user_data: List[Dict]) -> Iterator:
+        for data in user_data:
+            yield [
+                self._to_tensor([data['inputItem']]),
+                self._to_tensor([data['outputItem']]),
+                self._to_tensor([[data['userMask']]]),
+                self._to_tensor([[data['sessionMask']]]),
+            ]

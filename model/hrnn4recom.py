@@ -1,14 +1,13 @@
-from itertools import compress
-from typing import Tuple
+from typing import Tuple, Iterable, Callable
 
 import torch
 from torch import nn, Tensor
 from torch.nn.functional import one_hot
 
-from model.model_util import TorchModelInterface
+from model.model_util import TorchInterfaceRecomm
 
 
-class HRNN(TorchModelInterface):
+class HRNN(TorchInterfaceRecomm):
 
     def __init__(self, hidden_size: int, item_size: int, dropout: float = 0.5, device: torch.device = None, k: int = 5):
         """HRNN(Hierarchical Recurrent Neural Networks)
@@ -105,7 +104,7 @@ class HRNN(TorchModelInterface):
             y: target value dim : [batch size]
             y_hat: predict value, dim : [batch size, k]
         """
-        input_item, output_item, user_mask, session_mask, context = data
+        input_item, output_item, user_mask, session_mask = data
 
         if self.user_repr is None:
             self.user_repr = torch.zeros(input_item.shape[0], self.hidden_size, requires_grad=False,
@@ -136,13 +135,43 @@ class HRNN(TorchModelInterface):
         y_hat = indices.cpu().tolist()
         y = output_item.cpu().tolist()
         y = y[:len(y_hat)]  # drop negative sample
-        
-        # context session 제외
-        context = [not c for c in context]
-        y_hat = list(compress(y_hat, context))
-        y = list(compress(y, context))
-        
+
+        # # context session 제외
+        # context = [not c for c in context]
+        # y_hat = list(compress(y_hat, context))
+        # y = list(compress(y, context))
+
         return loss, y, y_hat
+
+    def _validation(self, test_iterator: Iterable, loss_func: Callable) -> tuple[float, list[list], list[list]]:
+
+        self.eval()
+        total_step = len(test_iterator)
+        val_loss = 0
+        output, label = [], []
+
+        with torch.no_grad():
+            for step, (item, samples, last_item, iterator) in enumerate(test_iterator):
+
+                self.user_repr = None
+                self.session_repr = None
+
+                for data in iterator:
+                    # user_repr과 session_repr 업데이트
+                    loss = self._compute_loss(data, loss_func, train=False)
+
+                val_loss += loss.item()
+                x, _, _ = self.forward(
+                    last_item, torch.tensor([[0.]]), torch.tensor([[1.]]), self.user_repr, self.session_repr
+                )
+                x = x[0, samples]
+
+                _, indices = torch.topk(x, k=self.k)
+                output.append(samples[indices].cpu().numpy())
+                label.append([item.cpu().item()])  # positive item
+
+        val_loss = val_loss / total_step
+        return val_loss, output, label
 
     def get_recommendation(self, dataloader, k):
 

@@ -1,7 +1,7 @@
 import sys
 import time
 from abc import abstractmethod, ABCMeta
-from typing import Iterable
+from typing import Iterable, Callable
 
 import numpy as np
 import torch
@@ -33,13 +33,13 @@ def history_logging(history, metrics, output, label, mode='train'):
     return history
 
 
-class TorchModelInterface(nn.Module, metaclass=ABCMeta):
+class TorchInterfaceRecomm(nn.Module, metaclass=ABCMeta):
 
     def __init__(self):
         super().__init__()
 
     @abstractmethod
-    def _compute_loss(self, data: Iterable, loss_func, optimizer=None, scheduler=None, train=True):
+    def _compute_loss(self, data: Iterable, loss_func: Callable, optimizer=None, scheduler=None, train=True):
         """ method for get loss from model
         Args:
             data (Iterable): batch data, some iterable object like list or tuple
@@ -50,6 +50,10 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
 
         Returns: loss object(torch.loss), y(list), y_hat(list)
         """
+        pass
+
+    @abstractmethod
+    def _validation(self, data: Iterable, loss_func: Callable):
         pass
 
     def save(self, file):
@@ -77,7 +81,7 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
 
             start_epoch_time = time.time()
             train_loss = 0
-            output, label = [], []
+            # output, label = [], []
 
             for step, data in enumerate(train_dataloader):
                 # ------ step start ------
@@ -89,9 +93,8 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
 
                 loss, y, y_hat = self._compute_loss(data, loss_func, optimizer, scheduler, train=True)
                 train_loss += loss.item()
-
-                output.extend(y_hat)
-                label.extend(y)
+                # output.extend(y_hat)
+                # label.extend(y)
 
                 if step >= total_step:
                     break
@@ -101,9 +104,9 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
             history['time'] = np.round(time.time() - start_epoch_time, 2)
 
             history['train_loss'] = train_loss / total_step
-            history = history_logging(history, metrics, output, label, mode='train')
+            sys.stdout.write(f"loss : {history['train_loss']:3.3f}")
 
-            epoch_val_loss, output, label = self.validation(test_dataloader, loss_func)
+            epoch_val_loss, output, label = self._validation(test_dataloader, loss_func)
             history['val_loss'] = epoch_val_loss
 
             history = history_logging(history, metrics, output, label, mode='val')
@@ -112,23 +115,3 @@ class TorchModelInterface(nn.Module, metaclass=ABCMeta):
             for func in callback:
                 func(self, history)
             # ------ epoch end ------
-
-    def validation(self, test_dataloader, loss_func):
-        self.eval()
-        total_step = len(test_dataloader)
-        val_loss = 0
-        output, label = [], []
-
-        with torch.no_grad():
-            for step, data in enumerate(test_dataloader):
-
-                loss, y, y_hat = self._compute_loss(data, loss_func, train=False)
-                val_loss += loss.item()
-                output.extend(y_hat)
-                label.extend(y)
-
-                if step >= total_step:
-                    break
-
-        val_loss = val_loss / total_step
-        return val_loss, output, label

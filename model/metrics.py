@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
+from numpy import ndarray
 
 
 class Metrics(metaclass=ABCMeta):
@@ -91,5 +92,5 @@ class PrecisionAtK(Metrics):
         k = np.array(output).shape[-1]
         hits = np.array(output) == np.array(label).reshape(-1, 1)
         precision = np.sum(hits, axis=-1) / k
-        return np.mean(precision)
+        return np.mean(precision).values
 
