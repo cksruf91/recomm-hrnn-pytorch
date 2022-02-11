@@ -1,11 +1,10 @@
 import random
-from typing import Iterator, List, Tuple, Dict
+from typing import Iterator, List, Tuple, Dict, Any
 
 import numpy as np
 import torch
 from pandas import DataFrame
 from torch import Tensor
-from torch.utils.data import Dataset
 
 
 class NegativeSampler:
@@ -18,7 +17,7 @@ class NegativeSampler:
             sample_size: 네거티브 샘플링할 샘플의 개수
         """
         item_meta = item_meta.sort_values('cumulate_count', ascending=True, inplace=False)
-        
+
         self.item_meta = item_meta[item_meta['cumulate_count'] != 0]
         self.item_list = self.item_meta.item_id.tolist()
         self.item_cumulate_count = self.item_meta.cumulate_count.tolist()
@@ -44,18 +43,38 @@ class NegativeSampler:
         return torch.tensor(sample, dtype=torch.int64)
 
 
-def data_iterator(user_data: List[Dict]) -> Iterator:
+def _to_tensor(value: Any, device: torch.device, tensor_type=torch.int64) -> Tensor:
+    """ int, list 등의 값을 pytorch tensor 로 변화하기 위한 함수
+
+    Args:
+        value: tensor로 변환하기 위한 python object
+        device: ex) torch.device('cuda')
+        tensor_type: 생성할 tensor 타입
+
+    Returns:
+        pytorch tensor object
+    """
+    return torch.tensor(value, device=device, dtype=tensor_type)
+
+
+def data_iterator(user_data: List[Dict], device: torch.device) -> Iterator:
     """ 유저 interaction 데이터를 순서대로 생성하는 Iterator 생성하는 함수
 
     Args:
+        device: tensor를 생성할 device
         user_data: 학습데이터
             예시) [row data, row data ....],
                 - row data = {'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0, 'conText': True}
 
-    Returns: Iterator
+    Returns: 데이터 생성자
     """
     for data in user_data:
-        yield data
+        yield [
+            _to_tensor([data['inputItem']], device=device),
+            _to_tensor([data['outputItem']], device=device),
+            _to_tensor([data['userMask']], device=device),
+            _to_tensor([data['sessionMask']], device=device),
+        ]
 
 
 class DataLoader:
@@ -102,13 +121,12 @@ class DataLoader:
         """ iter(self) """
         return self  # 현재 인스턴스를 반환
 
-    def __next__(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    def __next__(self) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         """
-        Returns(torch.tensor):
+        Returns:
             input 아이템 index, output 아이템 index,
             user_mask(유저가 변경될 경우 1 아님 0),
             session_mask(세션이 변경될 경우 1 아님 0)
-            
         """
         input_item = torch.zeros(self.batch_size, dtype=torch.int64, device=self.device)
         output_item = torch.zeros(self.batch_size + self.n_sample_size, dtype=torch.int64, device=self.device)
@@ -119,18 +137,18 @@ class DataLoader:
         for j in range(self.batch_size):
             try:
                 batch_data = next(self.batch_users_iter[j])
-            except StopIteration as e:  # iteration 이 끝난경우
+            except StopIteration:  # iteration 이 끝난경우
                 self.batch_users_iter[j] = self.assign_iterator()  # 다른유저로 새 Iterator 생성
                 batch_data = next(self.batch_users_iter[j])
 
-            input_item[j] = batch_data['inputItem']
-            output_item[j] = batch_data['outputItem']
-            user_mask[j] = batch_data['userMask']
-            session_mask[j] = batch_data['sessionMask']
+            input_item[j] = batch_data[0]  # inputItem
+            output_item[j] = batch_data[1]  # outputItem
+            user_mask[j] = batch_data[2]  # userMask
+            session_mask[j] = batch_data[3]  # sessionMask
             # context[j] = batch_data['conText']
 
-        if self.negative_sampler is not None :
-            output_item[j + 1:] = self.negative_sampler(output_item.cpu().tolist())
+        if self.negative_sampler is not None:
+            output_item[self.batch_size:] = self.negative_sampler(output_item.cpu().tolist())
 
         return input_item, output_item, user_mask, session_mask
 
@@ -147,7 +165,7 @@ class DataLoader:
             raise StopIteration  # iteration 종료
 
         self.i += 1
-        return data_iterator(self.data[user_id])
+        return data_iterator(self.data[user_id], device=self.device)
 
     def shuffle_user(self) -> None:
         """한 에폭이 끝나면 전체 유저의 순서를 섞음
@@ -167,7 +185,21 @@ class DataLoader:
 
 class TestIterator:
 
-    def __init__(self, test_file, context_dataset, device=None):
+    def __init__(self, test_file: str, context_dataset: Dict[int, List], device: torch.device = None):
+        """ model validation 을 위한 데이터 생성자
+
+        Args:
+            test_file: 테스트 데이터(negative 샘플)
+                user_id / item_id / negative_sample ....
+                예시) 0	47	2757	466	103	3194	... 2945
+
+            context_dataset: 유저의 이전 interaction 데이터
+                예시) {user_id1 : [row data, row data ....], user_id2 : [row data, row data ....], .... },
+                    row data = {
+                        'inputItem': 7, 'outputItem': 5196, 'userMask': 1.0, 'sessionMask': 0.0
+                    }
+            device: 예시) torch.device('cpu')
+        """
         self.data = []
         if device is None:
             device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -175,53 +207,36 @@ class TestIterator:
         self.context_dataset = context_dataset
         self.read_file(test_file)
         self.n_item = len(self.data[0][1:])
-        self.i = -1 
-        
+        self.i = -1
 
     def read_file(self, test_file):
         with open(test_file, 'r') as f:
             for row in f:
                 row = [int(r) for r in row.split('\t')]
                 last_item = self.context_dataset[row[0]][-1]['outputItem']
-                row.append(last_item)
+                row.append(last_item)  # 유저가 마지막으로 interaction 한 아이템
                 self.data.append(row)
-
-    def _to_tensor(self, value, dtype=torch.int64):
-        return torch.tensor(value, device=self.device, dtype=dtype)
 
     def __getitem__(self, index):
         user = self.data[index][0]
-        iterator = self.data_iterator(self.context_dataset[user])
-        
-        # label = [1] + [0] * (self.n_item-1)
-        # label = self._to_tensor(label, dtype=torch.float32)
-        # user = self._to_tensor(user)
-        
-        samples = self._to_tensor(self.data[index][1:-1])
-        item = self._to_tensor(self.data[index][1])
-        last_item = self._to_tensor([self.data[index][-1]])
+        iterator = data_iterator(self.context_dataset[user], device=self.device)
+
+        samples = _to_tensor(self.data[index][1:-1], device=self.device)
+        item = _to_tensor(self.data[index][1], device=self.device)
+        last_item = _to_tensor([self.data[index][-1]], device=self.device)
         return item, samples, last_item, iterator
 
     def __iter__(self):
         """ iter(self) """
         return self  # 현재 인스턴스를 반환
-    
+
     def __next__(self):
         self.i += 1
         try:
-            return self[self.i]
+            return self.__getitem__(self.i)
         except IndexError:
             self.i = -1
             raise StopIteration
-    
+
     def __len__(self):
         return len(self.data)
-    
-    def data_iterator(self, user_data: List[Dict]) -> Iterator:
-        for data in user_data:
-            yield [
-                self._to_tensor([data['inputItem']]),
-                self._to_tensor([data['outputItem']]),
-                self._to_tensor([[data['userMask']]]),
-                self._to_tensor([[data['sessionMask']]]),
-            ]

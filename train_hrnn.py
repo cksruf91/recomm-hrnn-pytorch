@@ -35,7 +35,6 @@ if __name__ == '__main__':
         'learningRate': argument.learning_rate,
         'loss': 'TOP1Loss',
         'optimizer': 'Adagrad',
-        'hiddenSize': 100,
         'k': argument.eval_k, 'dropout': 0.2,
         'batchSize': argument.batch_size
     }

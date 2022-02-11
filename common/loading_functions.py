@@ -3,9 +3,10 @@ import os
 import random
 import re
 from itertools import accumulate
-from typing import Any
+from typing import Any, List, Tuple
 
 import pandas as pd
+from pandas import DataFrame
 
 from common.utils import progressbar, to_timestampe
 from config import CONFIG
@@ -13,11 +14,21 @@ from config import CONFIG
 random.seed(42)
 
 
-def train_test_split(df, user_col, item_col):
-    last_action_time = df.groupby(user_col)[item_col].transform('max')
+def train_test_split(df: DataFrame, user_col: str, time_col: str) -> Tuple[DataFrame, DataFrame]:
+    """ 학습 테스트 데이터 분리 함수
+    각 유저별 마지막 interaction 읕 테스트로 나머지를 학습 데이터셋으로 사용
 
-    test = df[df[item_col] == last_action_time]
-    train = df[df[item_col] != last_action_time]
+    Args:
+        df: 전체 데이터
+        user_col: 기준 유저 아이디 컬럼명
+        time_col: 기준 아이템 아이디 컬럼명
+
+    Returns: 학습 데이터셋, 테스트 데이터셋
+    """
+    last_action_time = df.groupby(user_col)[time_col].transform('max')
+
+    test = df[df[time_col] == last_action_time]
+    train = df[df[time_col] != last_action_time]
 
     test = test.groupby(user_col).first().reset_index()
 
@@ -65,7 +76,7 @@ def loading_movielens_1m(file_path):
     ratings['user_id'] = ratings['UserID'].map(lambda x: user_id_mapper[x])
     users['user_id'] = users['UserID'].map(lambda x: user_id_mapper[x])
 
-    train, test = train_test_split(ratings, user_col='UserID', item_col='Timestamp')
+    train, test = train_test_split(ratings, user_col='UserID', time_col='Timestamp')
 
     print(f'train data size : {len(train)}, test data size : {len(test)}')
     print(f'total item size : {len(movies)}, total user size : {len(users)}')
@@ -108,7 +119,7 @@ def loading_movielens_10m(file_path):
     ratings['user_id'] = ratings['UserID'].map(lambda x: user_id_mapper[x])
     users['user_id'] = users['UserID'].map(lambda x: user_id_mapper[x])
 
-    train, test = train_test_split(ratings, user_col='UserID', item_col='Timestamp')
+    train, test = train_test_split(ratings, user_col='UserID', time_col='Timestamp')
 
     print(f'train data size : {len(train)}, test data size : {len(test)}')
     print(f'total item size : {len(movies)}, total user size : {len(users)}')
@@ -164,7 +175,7 @@ def loading_brunch(file_path):
     item_meta = metadata_to_df(item_meta_file)
     user_meta = metadata_to_df(user_meta_file)
 
-    train, test = train_test_split(interactions, user_col='UserID', item_col='Timestamp')
+    train, test = train_test_split(interactions, user_col='UserID', time_col='Timestamp')
 
     print(f'train data size : {len(train)}, test data size : {len(test)}')
     print(f'total item size : {len(item_meta)}, total user size : {len(user_meta)}')
@@ -172,7 +183,16 @@ def loading_brunch(file_path):
     return train, test, item_meta, user_meta
 
 
-def uniform_random_sample(n, exclude_items, items):
+def uniform_random_sample(n: int, exclude_items: List, items: List) -> List:
+    """ 랜덤 샘플링
+
+    Args:
+        n: 샘플 갯수
+        exclude_items: 샘플에서 제외되어야 할 아이템 list
+        items: 샘플링할 모집단 아이템 list
+
+    Returns: n개의 샘플 아이템 list
+    """
     sample = []
     while len(sample) < n:
         n_item = random.choice(items)
@@ -186,6 +206,16 @@ def uniform_random_sample(n, exclude_items, items):
 
 
 def weighted_random_sample(n, exclude_items, items, cum_sums):
+    """ 아이템 인기도에 의한 가중 샘플링
+
+    Args:
+        n: 샘플 갯수
+        exclude_items: 샘플에서 제외되어야 할 아이템 list
+        items: 샘플링할 모집단 아이템 list
+        cum_sums: 아이템 출현 횟수 누적합
+
+    Returns: n개의 샘플 아이템 list
+    """
     n_items = len(exclude_items)
     samples = random.choices(
         items, cum_weights=cum_sums, k=n_items + n + 100

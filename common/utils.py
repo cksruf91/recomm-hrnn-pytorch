@@ -38,5 +38,13 @@ def progressbar(total, i, bar_length=50, prefix='', suffix=''):
         print('Done')
 
 
-def to_timestampe(x, format_string):
+def to_timestampe(x: str, format_string: str):
+    """ str -> timestamp
+    Args:
+        x: ex) 2022010101
+        format_string: ex) '%Y%m%d%H'
+
+    Returns: timestamp
+
+    """
     return int(time.mktime(datetime.strptime(x, format_string).timetuple()))

@@ -93,7 +93,7 @@ class HRNN(TorchInterfaceRecomm):
         """
 
         Args:
-            data: list of tensor, model inputs,
+            data: list of tensor, model inputs, [input_item, output_item, user_mask, session_mask]
             loss_func: loss function
             optimizer: optimizer
             scheduler: learning rate scheduler
@@ -158,7 +158,7 @@ class HRNN(TorchInterfaceRecomm):
 
                 for data in iterator:
                     # user_repr과 session_repr 업데이트
-                    loss = self._compute_loss(data, loss_func, train=False)
+                    loss, _, _ = self._compute_loss(data, loss_func, train=False)
 
                 val_loss += loss.item()
                 x, _, _ = self.forward(
