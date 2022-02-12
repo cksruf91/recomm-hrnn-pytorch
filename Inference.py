@@ -19,8 +19,8 @@ def args():
     return parser.parse_args()
 
 
-def get_user_test_data(user_id):
-    with open(os.path.join(data_dir, 'negative_test.dat'), 'r') as file:
+def get_user_test_data(test_data, user_id):
+    with open(test_data, 'r') as file:
         for line in file:
             line = [int(l) for l in line.split('\t')]
             if line[0] == user_id:
@@ -48,10 +48,20 @@ if __name__ == '__main__':
     # loading data
     context_dataset = pickle.load(open(os.path.join(data_dir, f'valid.pkl'), 'rb'))
     item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.tsv'), sep='\t')
-    positive_item, negative_item = get_user_test_data(argument.user)
+    positive_item, negative_item = get_user_test_data(os.path.join(data_dir, 'negative_test.dat'), argument.user)
     user_contexts = context_dataset[argument.user]
 
-    history = pd.DataFrame({'item_id': [c['outputItem'] for c in user_contexts]})
+    # prediction
+    recommend_items = hrnn.get_recommendation(
+        data_iterator(user_contexts, device=device), argument.eval_k
+    )
+
+    # print result
+    history = pd.DataFrame(
+        {'item_id': [c['outputItem'] for c in user_contexts],
+         'rating': [c['rating'] for c in user_contexts],
+         'timestamp': [c['timestamp'] for c in user_contexts]}
+    )
     history = history.merge(item_meta, on='item_id', how='left', validate='1:1')
     print(history)
 
@@ -60,9 +70,6 @@ if __name__ == '__main__':
     print(test_dataset.shape)
     print(test_dataset.head())
 
-    recommend_items = hrnn.get_recommendation(
-        data_iterator(user_contexts, device=device), argument.eval_k
-    )
     recommend = pd.DataFrame({'item_id': recommend_items[0]})
     recommend = recommend.merge(item_meta, on='item_id', how='left', validate='1:1')
     print(recommend.shape)

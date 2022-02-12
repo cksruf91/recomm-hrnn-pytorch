@@ -1,10 +1,11 @@
 import argparse
 import os
 import pickle
+from typing import Callable
 
 import pandas as pd
 import torch
-from torch.optim import Adagrad, Adam, Adadelta
+from torch.optim import Adagrad, Adadelta, Adam
 
 from common.data_iterator import DataLoader, NegativeSampler, TestIterator
 from config import CONFIG
@@ -23,6 +24,25 @@ def args():
     parser.add_argument('-bs', '--batch_size', default=50, help='batch size', type=int)
     parser.add_argument('-ns', '--negative_sample', default=0, help='negative sample size', type=int)
     return parser.parse_args()
+
+
+def get_optimizer(name: str, lr: float) -> Callable:
+    """ optimizer를 return 하는 함수
+    Args:
+        name: optimizer name
+        lr: learning rate
+
+    Returns: pytorch optimizer function
+    """
+    functions = {
+        'Adagrad': Adagrad(hrnn.parameters(), lr=lr, eps=0.00001, weight_decay=0.0),
+        'Adadelta': Adadelta(hrnn.parameters(), lr=lr, eps=1e-06, weight_decay=0.0),
+        'Adam': Adam(hrnn.parameters(), lr=lr, betas=(0.9, 0.999), eps=1e-06, weight_decay=0.0, amsgrad=False)
+    }
+    try:
+        return functions[name]
+    except KeyError:
+        raise ValueError(f'optimizer [{name}] not exist, available optimizer {list(functions.keys())}')
 
 
 if __name__ == '__main__':
@@ -62,17 +82,19 @@ if __name__ == '__main__':
         dropout=model_params['dropout']
     )
     loss_func = TOP1Loss()
-    optimizer = Adagrad(hrnn.parameters(), lr=model_params['learningRate'], eps=0.00001, weight_decay=0.0)
-    # optimizer = Adadelta(hrnn.parameters(), lr=model_params['learningRate'], eps=1e-06, weight_decay=0.0)
+    optimizer = get_optimizer('Adam', lr=model_params['learningRate'])
 
     print(f"device : {device}")
 
     metrics = [nDCG(), RecallAtK()]
+    model_name = f'hrnn_v{argument.model_version}'
     callbacks = [
         ModelCheckPoint(
-            os.path.join('.', 'result', argument.dataset,
-                         f'hrnn_v{argument.model_version}' + '_e{epoch:02d}-loss{val_loss:1.4f}.zip')),
-        MlflowLogger(f'{argument.dataset}', model_params, run_name=f'hrnn-v{argument.model_version}')
+            os.path.join(
+                '.', 'result', argument.dataset,
+                model_name + '_e{epoch:02d}-loss{val_loss:1.4f}_nDCG{val_nDCG:1.3f}.zip'))
+        ,
+        MlflowLogger(f'{argument.dataset}', model_params, run_name=model_name)
     ]
 
     hrnn.fit(
