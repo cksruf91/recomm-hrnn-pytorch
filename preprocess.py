@@ -2,7 +2,7 @@ import argparse
 import os
 import pickle
 from itertools import accumulate
-from typing import Dict
+from typing import Dict, Tuple
 
 import pandas as pd
 from pandas import DataFrame
@@ -19,33 +19,33 @@ def args():
 
 
 def create_session_id(df: pd.DataFrame, time_delta: int):
-    df.sort_values(['UserID', 'Timestamp'], inplace=True)
-    df['timedelta'] = df.groupby('UserID')['Timestamp'].diff(1)
+    df.sort_values(['user_id', 'Timestamp'], inplace=True)
+    df['timedelta'] = df.groupby('user_id')['Timestamp'].diff(1)
     df['timedelta'].fillna(0, inplace=True)
     df['session_id'] = 0
     df.loc[df['timedelta'] > time_delta, 'session_id'] = 1
-    df['session_id'] = df.groupby('UserID')['session_id'].cumsum()
+    df['session_id'] = df.groupby('user_id')['session_id'].cumsum()
     return df
 
 
 def drop_sparse_item(df: pd.DataFrame, count: int, item_id: str):
-    return df[df.groupby(item_id)["UserID"].transform('count') >= count]
+    return df[df.groupby(item_id)["user_id"].transform('count') >= count]
 
 
 def drop_sparse_session(df: pd.DataFrame, count: int, item_id: str):
     return df[
-        df.groupby(["UserID", "session_id"])[item_id].transform('count') >= count
+        df.groupby(["user_id", "session_id"])[item_id].transform('count') >= count
         ]
 
 
 def drop_sparse_user(df, min_cnt, max_cnt):
-    session_count = df.groupby("UserID")["session_id"].transform('nunique')
+    session_count = df.groupby("user_id")["session_id"].transform('nunique')
     return df[session_count.between(min_cnt, max_cnt)]
 
 
 def get_last_n_session(df: pd.DataFrame, n: int):
     return df[
-        df["session_id"] >= df.groupby("UserID")["session_id"].transform(lambda x: max(max(x) - n, 0))
+        df["session_id"] >= df.groupby("user_id")["session_id"].transform(lambda x: max(max(x) - n, 0))
         ]
 
 
@@ -100,7 +100,7 @@ def format_dataset(df: pd.DataFrame) -> Dict:
     def parsing_row(row):
         return {
             'inputItem': row['item_id'], 'outputItem': row['target_id'], 'userMask': row['user_mask'],
-            'sessionMask': row['session_mask']
+            'sessionMask': row['session_mask'], 'rating': row['Rating'], 'timestamp': row['Timestamp']
         }
 
     data = {}
@@ -140,7 +140,7 @@ def movielens_preprocess(train: DataFrame, test: list, items: DataFrame, users: 
     train.loc[train.session_id.diff(1) != 0, 'session_mask'] = 1
     train['session_mask'].fillna(0, inplace=True)
 
-    train = train[['item_id', 'user_id', 'target_id', 'session_id', 'Timestamp', 'user_mask', 'session_mask']]
+    train = train[['item_id', 'user_id', 'Rating', 'target_id', 'session_id', 'Timestamp', 'user_mask', 'session_mask']]
     items = items[["item_id", "MovieID", "Title", "Genres"]]
     return train, test, items, users
 
@@ -170,9 +170,8 @@ if __name__ == '__main__':
     train_data, test_data, item_meta, user_meta = loading_data(argument.dataset)
     train_data, test_data, item_meta, user_meta = preprocess_data(argument.dataset, train_data, test_data, item_meta,
                                                                   user_meta)
-
     context_data = get_last_n_session(train_data, 5)
-    #     train, valid = split_test_by_session(interactions, n_context_session=3)
+    # train, valid = split_test_by_session(interactions, n_context_session=3)
 
     # get each item's popularity for negative sampling
     train_data['item_count'] = 1

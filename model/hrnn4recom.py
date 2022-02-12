@@ -181,6 +181,14 @@ class HRNN(TorchInterfaceRecomm):
         self.session_repr = None
 
         for step, data in enumerate(dataloader):
-            _, _, recommend_items = self._compute_loss(data, loss_func=lambda a, b: torch.tensor([0.0]), train=False)
+            _, _, _ = self._compute_loss(data, loss_func=lambda a, b: torch.tensor([0.0]), train=False)
+
+        last_item = data[1]
+        x, _, _ = self.forward(
+            last_item, torch.tensor([[0.]]), torch.tensor([[1.]]), self.user_repr, self.session_repr
+        )
+
+        _, indeices = torch.topk(x, self.k)
+        recommend_items = indeices.cpu().tolist()
 
         return recommend_items
