@@ -57,27 +57,27 @@ def split_test_by_session(df: pd.DataFrame, n_context_session: int = 3) -> Tuple
         last_session, on=['user_id', 'session_id'], how='left', validate='m:1'
     )
     df['test'].fillna(0, inplace=True)
-    train_data = df[df['test'] == 0].drop('test', axis=1)
-    test_data = df[df['test'] == 1].drop('test', axis=1)
+    train = df[df['test'] == 0].drop('test', axis=1)
+    test = df[df['test'] == 1].drop('test', axis=1)
 
-    test_data = test_data[test_data["item_id"].isin(test_data["item_id"].unique())]
+    test = test[test["item_id"].isin(test["item_id"].unique())]
 
     # 테스트 데이터에 user representation 생성을 위한 context 데이터 추가
-    context_session = train_data[
-        train_data.groupby("user_id")["session_id"].transform('max') - n_context_session <= train_data['session_id']
-        ].copy()
+    context_session = train[
+        train.groupby("user_id")["session_id"].transform('max') - n_context_session <= train['session_id']
+    ].copy()
 
-    train_data['context'] = False
-    test_data['context'] = False
+    train['context'] = False
+    test['context'] = False
     context_session['context'] = True
-    test_data = pd.concat([test_data, context_session], axis=0).sort_values(['user_id', 'session_id'])
-    assert train_data['context'].sum() == 0
+    test = pd.concat([test, context_session], axis=0).sort_values(['user_id', 'session_id'])
+    assert train['context'].sum() == 0
 
     # 테스트데이터 각 유저 첫 라인에 user_mask = 1 처리
-    indexes = [min(group.index) for uid, group in test_data.groupby('user_id')]
+    indexes = [min(group.index) for uid, group in test.groupby('user_id')]
     test_data.loc[indexes, 'user_mask'] = 1
 
-    return train_data, test_data
+    return train, test
 
 
 def format_dataset(df: pd.DataFrame) -> Dict:
@@ -147,6 +147,33 @@ def movielens_preprocess(train: DataFrame, test: list, items: DataFrame, users: 
 
 def brunch_preprocess(train: DataFrame, test: list, items: DataFrame, users: DataFrame) -> tuple[
     DataFrame, list, DataFrame, DataFrame]:
+    train = create_session_id(train, time_delta=60 * 60 * 24)
+    print(f"train dataset : {len(train)}")
+
+    # output value(target id) 생성 | input : 현재 item id, output 다음 item id
+    target_id = train.groupby(['user_id', 'session_id'])['item_id'].apply(
+        lambda col: pd.concat([col[1:], pd.Series([-1])])
+    )
+    train['target_id'] = target_id.tolist()
+    train = train[train.target_id != -1].copy()
+
+    print(f'test set size : {len(test)}')
+    user_list = train['user_id'].unique()
+    test = [t for t in test if t[0] in user_list]  # 학습데이터가 없는 유저 제거
+    print(f'-> test set size : {len(test)}')
+
+    # user mask (유저 아이디 변경 지점)
+    train.loc[train.user_id.diff(1) != 0, 'user_mask'] = 1
+    train['user_mask'].fillna(0, inplace=True)
+    # session mask (세션 아이디 변경 지점)
+    train.loc[train.session_id.diff(1) != 0, 'session_mask'] = 1
+    train['session_mask'].fillna(0, inplace=True)
+
+    train['Rating'] = 5  # 사용자가 해당글을 좋아한다고 가정
+
+    train = train[['item_id', 'user_id', 'Rating', 'target_id', 'session_id', 'Timestamp', 'user_mask', 'session_mask']]
+    items = items[["item_id", "magazine_id", "user_id", "title", "sub_title", "keyword_list", "display_url", "id"]]
+    users = users[['user_id', 'keyword_list', 'following_list', 'id']]
     return train, test, items, users
 
 

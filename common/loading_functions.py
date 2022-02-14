@@ -32,6 +32,12 @@ def train_test_split(df: DataFrame, user_col: str, time_col: str) -> Tuple[DataF
 
     test = test.groupby(user_col).first().reset_index()
 
+    print(f'test set size : {len(test)}')
+    user_list = train[user_col].unique()
+    drop_index = test[test[user_col].isin(user_list) == False].index
+    test.drop(drop_index, inplace=True)
+    print(f'-> test set size : {len(test)}')
+
     return train, test
 
 
@@ -132,12 +138,12 @@ def loading_brunch(file_path):
     item_meta_file = os.path.join(file_path, 'metadata.json')
     user_meta_file = os.path.join(file_path, 'users.json')
 
-    def logfile_to_df(logfile_dir):
-        files = os.listdir(logfile_dir)
+    def logfile_to_df(dir):
+        files = os.listdir(dir)
 
         # logfile to Dataframe
         interactions = {
-            'UserID': [], 'article_id': [], 'Timestamp': []
+            'UserID': [], 'ArticleID': [], 'Timestamp': []
         }
 
         total = len(files)
@@ -150,12 +156,11 @@ def loading_brunch(file_path):
                         user, *items = line.split()
                         for item in items:
                             interactions['UserID'].append(user)
-                            interactions['article_id'].append(item)
+                            interactions['ArticleID'].append(item)
 
                             log_datetime = file.split('_')[0]
                             interactions['Timestamp'].append(to_timestampe(log_datetime, '%Y%m%d%H'))
 
-        progressbar(total, total, prefix='loading...')
         return pd.DataFrame(interactions)
 
     def metadata_to_df(meta_data_file):
@@ -168,14 +173,52 @@ def loading_brunch(file_path):
                 progressbar(total, i + 1, prefix='metadata loading...')
                 meta_data[i] = json.loads(line)
 
-        progressbar(total, total, prefix='metadata loading...')
         return pd.DataFrame.from_dict(meta_data, orient='index')
 
     interactions = logfile_to_df(logfile_dir)
-    item_meta = metadata_to_df(item_meta_file)
     user_meta = metadata_to_df(user_meta_file)
+    item_meta = metadata_to_df(item_meta_file)
 
-    train, test = train_test_split(interactions, user_col='UserID', time_col='Timestamp')
+    # random sampling
+    total_user = interactions['UserID'].nunique()
+    total_interactions = len(interactions)
+    user_id_list = interactions['UserID'].unique().tolist()
+    user_id_list = random.sample(user_id_list, k=int(len(user_id_list) * 0.1))
+
+    # sampling interactions
+    drop_index = interactions[interactions['UserID'].isin(user_id_list) == False].index
+    interactions.drop(drop_index, inplace=True)
+    print(f"UserID {total_user} -> {len(user_id_list)}")
+    print(f"UserID {total_interactions} -> {len(interactions)}")
+
+    # sampling user dataset
+    total_user_meta = len(user_meta)
+    drop_index = user_meta[user_meta['id'].isin(user_id_list) == False].index
+    user_meta.drop(drop_index, inplace=True)
+    print(f"user meta data {total_user_meta} -> {len(user_meta)}")
+
+    # sampling item dataset
+    total_item_meta = len(item_meta)
+    item_sample_list = interactions['ArticleID'].unique().tolist()
+    drop_index = item_meta[item_meta['id'].isin(item_sample_list) == False].index
+    item_meta.drop(drop_index, inplace=True)
+    print(f"item meta data {total_item_meta} -> {len(item_meta)}")
+
+    # UserID -> user_id
+    user_id_mapper = {
+        UserID: user_id for user_id, UserID in enumerate(interactions.UserID.unique())
+    }
+    interactions['user_id'] = interactions['UserID'].map(lambda x: user_id_mapper[x])
+    user_meta['user_id'] = user_meta['id'].map(lambda x: user_id_mapper[x])
+
+    # MovieID -> item_id
+    article_id_mapper = {
+        ArticleID: item_id for item_id, ArticleID in enumerate(interactions.ArticleID.unique())
+    }
+    interactions['item_id'] = interactions['ArticleID'].map(lambda x: article_id_mapper[x])
+    item_meta['item_id'] = item_meta['id'].map(lambda x: article_id_mapper[x])
+
+    train, test = train_test_split(interactions, user_col='user_id', time_col='Timestamp')
 
     print(f'train data size : {len(train)}, test data size : {len(test)}')
     print(f'total item size : {len(item_meta)}, total user size : {len(user_meta)}')
@@ -248,7 +291,7 @@ def get_negative_samples(train_df, test_df, user_col, item_col, n_sample=99, met
         try:
             inter_items = user_interactions[uid]
         except KeyError as e:
-            inter_items = set([])
+            continue
 
         if method == 'random':
             sample = uniform_random_sample(n_sample, inter_items, item_list)
@@ -266,23 +309,19 @@ def get_negative_samples(train_df, test_df, user_col, item_col, n_sample=99, met
 
 def loading_data(data_type: str) -> tuple[Any, list[list], Any, Any]:
     user_col = 'user_id'
+    item_col = 'item_id'
 
     if data_type == '10M':
-        item_col = 'item_id'
         file_path = os.path.join(CONFIG.DATA, 'movielens', 'ml-10M100K')
-        loading_function = loading_movielens_10m
+        train, test, item, user = loading_movielens_10m(file_path)
     elif data_type == '1M':
-        item_col = 'item_id'
         file_path = os.path.join(CONFIG.DATA, 'movielens', 'ml-1m')
-        loading_function = loading_movielens_1m
+        train, test, item, user = loading_movielens_1m(file_path)
     elif data_type == 'BRUNCH':
-        item_col = 'article_id'
         file_path = os.path.join(CONFIG.DATA, 'brunch_view')
-        loading_function = loading_brunch
+        train, test, item, user = loading_brunch(file_path)
     else:
         raise ValueError(f"unknown data type {data_type}")
-
-    train, test, item, user = loading_function(file_path)
 
     test_negative = get_negative_samples(train, test, user_col, item_col, n_sample=99, method='random')
 

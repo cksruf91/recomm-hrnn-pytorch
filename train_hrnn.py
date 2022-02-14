@@ -63,8 +63,8 @@ if __name__ == '__main__':
     data_dir = os.path.join(CONFIG.DATA, argument.dataset)
     train_dataset = pickle.load(open(os.path.join(data_dir, f'train.pkl'), 'rb'))
     context_dataset = pickle.load(open(os.path.join(data_dir, f'valid.pkl'), 'rb'))
-    item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.tsv'), sep='\t')
-    item_size = item_meta.item_id.nunique() + 1
+    item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.tsv'), sep='\t', low_memory=False)
+    item_size = int(item_meta.item_id.max() + 1)
     model_params['itemSize'] = item_size
 
     n_sampler = NegativeSampler(item_meta, sample_size=model_params['negativeSampleSize'])
@@ -94,7 +94,7 @@ if __name__ == '__main__':
                 '.', 'result', argument.dataset,
                 model_name + '_e{epoch:02d}-loss{val_loss:1.4f}_nDCG{val_nDCG:1.3f}.zip'))
         ,
-        MlflowLogger(f'{argument.dataset}', model_params, run_name=model_name)
+        MlflowLogger(f'{argument.dataset}', model_params, run_name=model_name, log_model=True)
     ]
 
     hrnn.fit(
