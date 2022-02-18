@@ -183,13 +183,13 @@ def loading_brunch(file_path):
     total_user = interactions['UserID'].nunique()
     total_interactions = len(interactions)
     user_id_list = interactions['UserID'].unique().tolist()
-    user_id_list = random.sample(user_id_list, k=int(len(user_id_list) * 0.1))
+    user_id_list = random.sample(user_id_list, k=int(len(user_id_list) * 0.1))  # sampling
 
     # sampling interactions
     drop_index = interactions[interactions['UserID'].isin(user_id_list) == False].index
     interactions.drop(drop_index, inplace=True)
     print(f"UserID {total_user} -> {len(user_id_list)}")
-    print(f"UserID {total_interactions} -> {len(interactions)}")
+    print(f"transaction count {total_interactions} -> {len(interactions)}")
 
     # sampling user dataset
     total_user_meta = len(user_meta)

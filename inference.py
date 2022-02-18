@@ -32,11 +32,18 @@ if __name__ == '__main__':
     argument = args()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     data_dir = os.path.join(CONFIG.DATA, argument.dataset)
-
+    
+    # loading data
+    context_dataset = pickle.load(open(os.path.join(data_dir, f'valid.pkl'), 'rb'))
+    item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.tsv'), sep='\t', low_memory=False)
+    positive_item, negative_item = get_user_test_data(os.path.join(data_dir, 'negative_test.dat'), argument.user)
+    user_contexts = context_dataset[argument.user]
+    item_size = int(item_meta.item_id.max() + 1)
+    
     # loading model
     model_params = {
         'hiddenUnits': 100,  # 50
-        'k': argument.eval_k, 'dropout': 0.2, 'item_size': 3884
+        'k': argument.eval_k, 'dropout': 0.2, 'item_size': item_size
     }
     hrnn = HRNN(
         model_params['hiddenUnits'], model_params['item_size'], device=device, k=model_params['k'],
@@ -45,32 +52,30 @@ if __name__ == '__main__':
     weight = os.path.join('result', argument.dataset, argument.weight)
     hrnn.load(weight)
 
-    # loading data
-    context_dataset = pickle.load(open(os.path.join(data_dir, f'valid.pkl'), 'rb'))
-    item_meta = pd.read_csv(os.path.join(data_dir, f'item_meta.tsv'), sep='\t')
-    positive_item, negative_item = get_user_test_data(os.path.join(data_dir, 'negative_test.dat'), argument.user)
-    user_contexts = context_dataset[argument.user]
-
     # prediction
     recommend_items = hrnn.get_recommendation(
         data_iterator(user_contexts, device=device), argument.eval_k
     )
 
     # print result
+    display_cols = ['item_id', 'user_id', 'Title', 'Genres']
+    if argument.dataset == 'BRUNCH':
+        display_cols = ['item_id', 'user_id', 'title', 'keyword_list', 'display_url']
+    
     history = pd.DataFrame(
-        {'item_id': [c['outputItem'] for c in user_contexts],
-         'rating': [c['rating'] for c in user_contexts],
-         'timestamp': [c['timestamp'] for c in user_contexts]}
+        {'item_id': [int(c['outputItem']) for c in user_contexts],
+         'rating': [int(c['rating']) for c in user_contexts],
+         'timestamp': [int(c['timestamp']) for c in user_contexts]}
     )
-    history = history.merge(item_meta, on='item_id', how='left', validate='1:1')
-    print(history)
+    history = history.merge(item_meta, on='item_id', how='left')
+    print(history[ display_cols + ['rating', 'timestamp'] ])
 
     test_dataset = pd.DataFrame({'item_id': [positive_item] + negative_item})
-    test_dataset = test_dataset.merge(item_meta, on='item_id', how='left', validate='1:1')
+    test_dataset = test_dataset.merge(item_meta, on='item_id', how='left', validate='1:m')
     print(test_dataset.shape)
-    print(test_dataset.head())
+    print(test_dataset[display_cols].head())
 
     recommend = pd.DataFrame({'item_id': recommend_items[0]})
-    recommend = recommend.merge(item_meta, on='item_id', how='left', validate='1:1')
+    recommend = recommend.merge(item_meta, on='item_id', how='left', validate='1:m')
     print(recommend.shape)
-    print(recommend)
+    print(recommend[display_cols])
