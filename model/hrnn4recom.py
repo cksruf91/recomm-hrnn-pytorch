@@ -137,11 +137,6 @@ class HRNN(TorchInterfaceRecomm):
         y = output_item.cpu().tolist()
         y = y[:len(y_hat)]  # drop negative sample
 
-        # # context session 제외
-        # context = [not c for c in context]
-        # y_hat = list(compress(y_hat, context))
-        # y = list(compress(y, context))
-
         return loss, y, y_hat
 
     def _validation(self, test_iterator: Iterable, loss_func: Callable) -> tuple[float, list[list], list[list]]:
@@ -199,7 +194,7 @@ class HRNN(TorchInterfaceRecomm):
             last_item, user_mask, item_mask, self.user_repr, self.session_repr
         )
 
-        _, indeices = torch.topk(x, self.k)
-        recommend_items = indeices.cpu().tolist()
+        # _, indeices = torch.topk(x, self.k)
+        # recommend_items = indeices.cpu().tolist()
 
-        return recommend_items
+        return x
