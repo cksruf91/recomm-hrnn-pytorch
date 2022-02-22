@@ -94,7 +94,7 @@ if __name__ == '__main__':
         ModelCheckPoint(
             os.path.join(
                 '.', 'result', argument.dataset,
-                model_name + '_e{epoch:02d}-loss{val_loss:1.4f}_nDCG{val_nDCG:1.3f}.zip'),
+                model_name + '-e{epoch:02d}-loss{val_loss:1.4f}-nDCG{val_nDCG:1.3f}.zip'),
             monitor='val_nDCG', mode='max'
         )
         ,

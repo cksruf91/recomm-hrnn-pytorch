@@ -127,7 +127,7 @@ def movielens_preprocess(train: DataFrame, test: list, items: DataFrame, users: 
     # print(f"drop sparse user : {len(train)}")
 
     # output value(target id) 생성 | input : 현재 item id, output 다음 item id
-    target_id = train.groupby(['user_id', 'session_id'])['item_id'].apply(
+    target_id = train.groupby('user_id')['item_id'].apply(
         lambda col: pd.concat([col[1:], pd.Series([-1])])
     )
     train['target_id'] = target_id.tolist()
@@ -151,7 +151,7 @@ def brunch_preprocess(train: DataFrame, test: list, items: DataFrame, users: Dat
     print(f"train dataset : {len(train)}")
 
     # output value(target id) 생성 | input : 현재 item id, output 다음 item id
-    target_id = train.groupby(['user_id', 'session_id'])['item_id'].apply(
+    target_id = train.groupby('user_id')['item_id'].apply(
         lambda col: pd.concat([col[1:], pd.Series([-1])])
     )
     train['target_id'] = target_id.tolist()
